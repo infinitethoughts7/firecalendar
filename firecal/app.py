@@ -24,7 +24,7 @@ class Area(BaseModel):
     year: Optional[int] = None
     month: Optional[int] = None
 
-MAX_VERTS, MAX_AREA_DEG2 = 2000, 40.0          # drawn areas: bigger than any Indian state, far smaller than the country
+MAX_VERTS, MAX_AREA_DEG2, MAX_BBOX_DEG2 = 2000, 40.0, 60.0          # drawn areas: bigger than any Indian state, far smaller than the country
 
 def check_drawn(geom: dict):
     """reject drawn shapes that are invalid or big enough to exhaust memory on a public server."""
@@ -35,7 +35,9 @@ def check_drawn(geom: dict):
     n = sum(len(r.coords) for p in getattr(g, "geoms", [g]) for r in [p.exterior, *p.interiors])
     if n > MAX_VERTS: raise HTTPException(400, f"drawn area has too many points ({n} > {MAX_VERTS})")
     if not g.is_valid or g.is_empty: raise HTTPException(400, "drawn area is not a valid polygon (does it cross itself?)")
-    if g.area > MAX_AREA_DEG2: raise HTTPException(400, "drawn area is too large; draw a smaller area or pick a state")
+    x0, y0, x1, y1 = g.bounds                    # points are loaded per bounding box, so cap that too (thin rings / L-shapes)
+    if g.area > MAX_AREA_DEG2 or (x1 - x0) * (y1 - y0) > MAX_BBOX_DEG2:
+        raise HTTPException(400, "drawn area is too large; draw a smaller area or pick a state")
     return g
 
 def resolve(a: Area):
