@@ -6,7 +6,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
 from shapely.geometry import shape, box
-from firecal.engine import Engine
+from firecal.engine import Engine, season, outlook
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 app = FastAPI(title="FireCalendar API", version="1.0",
@@ -57,8 +59,8 @@ def compute(country, key, wkb):
     """cached per area: only small aggregates are kept (never the raw points)."""
     from shapely import from_wkb
     E = ENG[country]; g = from_wkb(wkb)
-    m, pts = E.monthly(g)
-    return m, int(len(pts)), blind_spot(pts, E.calendar(m))
+    d, pts = E.daily(g); m = E.monthly_from_daily(d); v = E.daily_value(d)
+    return m, int(len(pts)), blind_spot(pts, E.calendar(m)), v, season(v, m, E.data_end)
 
 def blind_spot(pts, cal):
     """Aqua (drifting later) vs S-NPP (fixed ~13:30) detections in this area's peak months, vs 2012-19 normal."""
@@ -89,7 +91,7 @@ def clean(o):
 @app.post("/api/query")
 def query(a: Area):
     g, name = resolve(a); E = ENG[a.country]
-    m, n_points, blind = compute(a.country, a.id or json.dumps(a.geometry, sort_keys=True), g.wkb)
+    m, n_points, blind, v, seas = compute(a.country, a.id or json.dumps(a.geometry, sort_keys=True), g.wkb)
     cal = E.calendar(m)
     # default: the area's peak month in the latest full calendar year in the data
     end = m.index.max()
@@ -112,6 +114,7 @@ def query(a: Area):
         climatology=dict(median=[None if np.isnan(v) else round(float(v), 1) for v in clim.median().values]),
         anomaly=an, yearly=[dict(year=int(y), **{k: round(float(v), 1) for k, v in r.items()}) for y, r in yearly.iterrows()],
         blind_spot=blind,
+        season=seas, outlook=outlook(v, datetime.now(ZoneInfo("Asia/Kolkata")).date()),
         sensors=dict(starts=E.err["starts"], snpp_end="2026-11-02", modis_stable_end=E.stable_end,
                      errors={k: {kk: E.err[k][kk] for kk in ["block_month_R2", "block_month_median_rel_err", "yearly_bias_rms"]} for k in ["terra", "snpp", "n20"]}),
     )))
@@ -119,7 +122,7 @@ def query(a: Area):
 @app.post("/api/csv")
 def csv(a: Area):
     g, name = resolve(a)
-    m, _, _ = compute(a.country, a.id or json.dumps(a.geometry, sort_keys=True), g.wkb)
+    m, *_ = compute(a.country, a.id or json.dumps(a.geometry, sort_keys=True), g.wkb)
     out = m.reset_index().rename(columns={"index": "month"})
     out["month"] = out.month.dt.strftime("%Y-%m"); out.insert(0, "area", name)
     out = out.rename(columns={"value": "fires_modis_equivalent", "lo": "low_estimate", "hi": "high_estimate",

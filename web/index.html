@@ -52,6 +52,9 @@ table.mini td{border-bottom:1px solid var(--line);padding:6px 8px}
 .team .lane{position:absolute;left:96px;right:0;height:18px;border-radius:4px;font-size:11px;color:#fff;padding-left:6px;line-height:18px;white-space:nowrap;overflow:hidden}
 .team .lab{position:absolute;left:0;width:92px;font-size:11px;white-space:nowrap;color:var(--muted);line-height:18px}
 .loading{opacity:.45;pointer-events:none}
+.seg button{height:28px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:0 10px;font-size:12px;cursor:pointer}
+.seg button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+table.mini td.num,table.mini th.num{text-align:right}
 details summary{cursor:pointer;font-weight:600;font-size:14px}
 @media (max-width:900px){body{height:auto}main{grid-template-columns:1fr}#mapwrap{height:52vh}#panel{overflow:visible;padding:14px 12px 32px}}
 @media (max-width:560px){#stats{grid-template-columns:repeat(2,1fr)}.answer{font-size:20px}}
@@ -103,6 +106,20 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
         <h3>Burning calendar <span class="muted" style="font-weight:400">· fires per month, one consistent unit (MODIS-equivalent)</span></h3>
         <div class="muted">Darker = more fire. Click any square to check that month.</div>
         <div id="chCal" class="chart tall"></div>
+      </div>
+      <div class="card" id="seasonCard">
+        <div class="row" style="justify-content:space-between">
+          <h3 style="margin:0">Fire-season clock</h3>
+          <div class="row seg" id="seasonTabs"></div>
+        </div>
+        <div class="muted" id="seasonText" style="margin-top:8px"></div>
+        <div id="chSeason" class="chart" style="height:380px"></div>
+        <div class="muted" style="font-size:12px">Each bar is one year: it starts when 10% of that season's fires had been detected and ends at 90%. The dot is the busiest 15 days; dashed lines are the typical start and 90% dates. Trend = Theil–Sen slope of the start date, with its 95% range.</div>
+      </div>
+      <div class="card" id="outlookCard">
+        <h3>Next 4 weeks: what usually happens</h3>
+        <div class="muted" id="outlookText"></div>
+        <table class="mini" id="outlookTable" style="margin-top:10px"></table>
       </div>
       <div class="card">
         <h3>Month by month</h3>
@@ -210,7 +227,7 @@ function render(){
   document.getElementById('stats').innerHTML=[
     [fmt(a.value),'fires this month'],[fmt(a.median),'normal for this month'],[Math.round(a.percentile)+'%','of past years were lower'],[methodTxt[m.method]||'–','how this month was measured']]
     .map(([b,s])=>`<div class="stat"><b style="${b.length>12?'font-size:13px;line-height:1.3':''}">${b}</b><span>${s}</span></div>`).join('');
-  renderBlind(d);renderCal(d);renderTs(d);renderYr(d);renderTeam(d);renderMethods(d);
+  renderBlind(d);renderCal(d);renderSeason(d,0);renderOutlook(d);renderTs(d);renderYr(d);renderTeam(d);renderMethods(d);
 }
 function stripYM(r){const o=Object.assign({},r);delete o.year;delete o.month;return o}
 function chart(id){if(!charts[id])charts[id]=echarts.init(document.getElementById(id));return charts[id]}
@@ -227,6 +244,42 @@ function renderBlind(d){
     yAxis:[{type:'value',name:'× usual',nameTextStyle:{fontSize:11}},{type:'value',name:'Aqua pass (IST)',min:13,max:16,nameTextStyle:{fontSize:11},axisLabel:{formatter:v=>Math.floor(v)+':'+String(Math.round(v%1*60)).padStart(2,'0')}}],
     series:[{name:'Aqua fires vs usual',type:'bar',data:ys.map(y=>y.relative),itemStyle:{color:'#f59e0b'}},
             {name:'Aqua pass time',type:'line',yAxisIndex:1,data:ys.map(y=>y.aqua_time_ist),itemStyle:{color:'#1e3a5f'}}]},true);
+}
+// fire-season clock: day offsets are counted from the 1st of the season window's first month
+const dayLabel=(sm,off)=>{const t=new Date(Date.UTC(2001,sm-1,1)+off*864e5);return t.getUTCDate()+' '+MONTHS[t.getUTCMonth()]};
+function renderSeason(d,k){
+  const card=document.getElementById('seasonCard'),S=(d.season&&d.season.seasons)||[];
+  const tabs=document.getElementById('seasonTabs');
+  if(!S.length){tabs.innerHTML='';document.getElementById('seasonText').textContent='Too little fire here in a normal year to define a burning season.';document.getElementById('chSeason').style.display='none';return}
+  document.getElementById('chSeason').style.display='block';
+  tabs.innerHTML=S.length>1?S.map((x,i)=>`<button class="${i===k?'on':''}" onclick="renderSeason(current,${i})">${x.label} season · ${Math.round(x.share*100)}%</button>`).join(''):'';
+  const s=S[k],sm=s.start_month,t=s.typical,tr=s.onset_trend;
+  let txt=t?`In a typical year the <b>${s.label}</b> season${S.length>1?` (${Math.round(s.share*100)}% of this area's fires)`:''} starts around <b>${dayLabel(sm,t.onset)}</b>, peaks around <b>${dayLabel(sm,t.peak)}</b> and is 90% over by <b>${dayLabel(sm,t.end)}</b> (median, ${s.years[0].year}–${s.years[s.years.length-1].year}).`:`Too few years with enough fire to describe a typical ${s.label} season.`;
+  if(tr){const a=Math.abs(tr.days_per_decade);txt+=tr.significant?` Since ${tr.years[0]} it has been starting <b>${a} days ${tr.days_per_decade>0?'later':'earlier'} per decade</b> (95% range ${tr.lo} to ${tr.hi}).`:` No clear shift in its start date since ${tr.years[0]} (${tr.days_per_decade>0?'+':''}${tr.days_per_decade} days/decade, 95% range ${tr.lo} to ${tr.hi}).`}
+  if(S.length>1)txt+=' This area has two burning seasons; switch between them above.';
+  document.getElementById('seasonText').innerHTML=txt;
+  const ys=s.years.filter(r=>r.onset!=null),yl=ys.map(r=>s.crosses_year?`${r.year}–${String(r.year+1).slice(2)}`:String(r.year));
+  const span=Math.round((Date.UTC(2001,sm-1+s.n_months,1)-Date.UTC(2001,sm-1,1))/864e5);
+  chart('chSeason').setOption({grid:{left:4,right:16,top:8,bottom:4,containLabel:true},
+    tooltip:{trigger:'axis',axisPointer:{type:'shadow'},formatter:p=>{const r=ys[p[0].dataIndex];return `${yl[p[0].dataIndex]}<br>start ${dayLabel(sm,r.onset)} · peak ${dayLabel(sm,r.peak)} · 90% by ${dayLabel(sm,r.end)}<br>${fmt(r.total)} fires (MODIS-eq.)`}},
+    xAxis:{type:'value',min:0,max:span,interval:null,axisLabel:{formatter:v=>dayLabel(sm,v),hideOverlap:true}},
+    yAxis:{type:'category',data:yl,inverse:true,axisLabel:{fontSize:10,interval:0}},
+    series:[{type:'bar',stack:'s',data:ys.map(r=>r.onset),itemStyle:{color:'transparent'},barWidth:'62%',tooltip:{show:false}},
+      {type:'bar',stack:'s',data:ys.map(r=>r.end-r.onset),itemStyle:{color:'#f59e0b',borderRadius:3}},
+      {type:'scatter',data:ys.map((r,i)=>[r.peak,i]),symbolSize:7,itemStyle:{color:'#7f1d1d'},z:5},
+      ...(t?[{type:'line',data:[],markLine:{silent:true,symbol:'none',lineStyle:{color:'#1e3a5f',type:'dashed'},label:{show:false},
+        data:[{xAxis:t.onset,name:'typical start'},{xAxis:t.end,name:'typical 90%'}]}}]:[])]},true);
+  chart('chSeason').getDom().style.height=Math.max(220,ys.length*15+40)+'px';chart('chSeason').resize();
+}
+function renderOutlook(d){
+  const o=d.outlook,W=o.weeks,tot=W.reduce((a,w)=>a+w.p90,0);
+  const nd=s=>{const t=new Date(s+'T00:00:00Z');return t.getUTCDate()+' '+MONTHS[t.getUTCMonth()]};
+  let txt=`Live ${o.from_date.slice(0,4)} satellite data are not loaded yet, so this is <b>history, not a forecast</b>: how much fire these same weeks had in ${o.base_years[0]}–${o.base_years[1]} (MODIS-equivalent).`;
+  if(tot<3)txt+=' Almost no fire is usual here in these weeks.';
+  if(d.blind_spot&&d.blind_spot.flag)txt+=' <b style="color:#92400e">Recent years may undercount here (see the satellite warning above).</b>';
+  document.getElementById('outlookText').innerHTML=txt;
+  document.getElementById('outlookTable').innerHTML='<tr><th>Week</th><th class="num">Typical</th><th class="num">8 in 10 years</th><th class="num">Last 5 years (median)</th></tr>'+
+    W.map(w=>`<tr><td>${nd(w.start)} – ${nd(w.end)}</td><td class="num"><b>${fmt(w.median)}</b></td><td class="num">${fmt(w.p10)}–${fmt(w.p90)}</td><td class="num">${fmt(w.recent)}</td></tr>`).join('');
 }
 function renderCal(d){
   const data=[];d.calendar.years.forEach((y,i)=>d.calendar.values[i].forEach((v,j)=>{if(v!=null)data.push([j,i,Math.log10(v+1),v])}));

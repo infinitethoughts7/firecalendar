@@ -54,8 +54,20 @@ class Engine:
         idx = pd.date_range(f"{int(self.err['starts']['terra'][0])}-{int(self.err['starts']['terra'][1]):02d}-01", self.data_end)
         return out.reindex(idx, fill_value=0), df
 
+    def daily_value(self, d):
+        """daily harmonized MODIS-equivalent value, same method switch as monthly()."""
+        e = self.err
+        has_s = d.index >= pd.Timestamp(*e["starts"]["snpp"], 1); has_n = d.index >= pd.Timestamp(*e["starts"]["n20"], 1)
+        v_mean = np.where(has_s & has_n, (d.snpp_eq + d.n20_eq) / 2, np.where(has_s, d.snpp_eq, d.n20_eq))
+        stable_end = pd.Timestamp(self.stable_end, 12, 31)
+        v = np.select([d.index < self.aqua_start, d.index <= stable_end], [d.terra_eq, d.terra + d.aqua], v_mean)
+        return pd.Series(v, index=d.index, name="value")
+
     def monthly(self, geom):
         d, pts = self.daily(geom)
+        return self.monthly_from_daily(d), pts
+
+    def monthly_from_daily(self, d):
         m = d.resample("MS").sum()
         e = self.err
         m["modis"] = m.terra + m.aqua
@@ -70,7 +82,7 @@ class Engine:
         m["rel_err"] = m.method.map(rel)
         m["lo"], m["hi"] = m.value * (1 - m.rel_err), m.value * (1 + m.rel_err)
         m["viirs_eq"] = np.where(has_s | has_n, v_mean, np.nan)
-        return m.drop(columns=[c for c in m.columns if c.endswith("_eq") and c != "viirs_eq"]), pts
+        return m.drop(columns=[c for c in m.columns if c.endswith("_eq") and c != "viirs_eq"])
 
     @staticmethod
     def calendar(m):
@@ -93,3 +105,89 @@ class Engine:
                      "much lower than usual" if pct <= 10 else "lower than usual" if pct <= 25 else "normal")
         return dict(year=year, month=month, value=float(cur), median=med, ratio=float(ratio), percentile=pct,
                     label=label, n_years=int(len(base)), base_years=[int(base.index.min()), int(base.index.max())])
+
+
+def theil_sen(x, y, z=1.96):
+    """Theil-Sen slope (median of pairwise slopes) with Sen's (1968) rank-based 95% interval."""
+    x, y = np.asarray(x, float), np.asarray(y, float); n = len(x)
+    i, j = np.triu_indices(n, 1); dx = x[j] - x[i]; ok = dx != 0
+    sl = np.sort((y[j] - y[i])[ok] / dx[ok]); N = len(sl)
+    c = z * np.sqrt(n * (n - 1) * (2 * n + 5) / 18)          # Kendall S variance, no tie correction
+    lo_i, hi_i = int(np.floor((N - c) / 2)), int(np.ceil((N + c) / 2))
+    return float(np.median(sl)), float(sl[max(lo_i - 1, 0)]), float(sl[min(hi_i, N - 1)])
+
+
+MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+def find_seasons(clim, max_seasons=2, grow=0.10, min_share=0.05):
+    """burning seasons from the monthly climatology (12 values).
+    core = peak month grown to neighbours with >= `grow` x that peak; window = core + 1 buffer month each side.
+    A second season counts only if its peak >= 5% of the main peak and it holds >= `min_share` of annual fire."""
+    c = np.nan_to_num(np.asarray(clim, float)); tot = c.sum(); free = set(range(12)); out = []
+    while len(out) < max_seasons and free and tot > 0:
+        pk = max(free, key=lambda i: c[i])
+        if c[pk] <= 0 or (out and c[pk] < 0.05 * out[0]["peak_val"]): break
+        core = [pk]
+        for step in (-1, 1):
+            i = (pk + step) % 12
+            while i in free and i not in core and c[i] >= grow * c[pk] and len(core) < 10:
+                (core.insert(0, i) if step < 0 else core.append(i)); i = (i + step) % 12
+        share = c[core].sum() / tot
+        if out and share < min_share: break
+        lo, hi = (core[0] - 1) % 12, (core[-1] + 1) % 12
+        win = ([lo] if lo in free else []) + core + ([hi] if hi in free else [])
+        free -= set(win)
+        out.append(dict(label=MON[core[0]] + ("–" + MON[core[-1]] if len(core) > 1 else ""),
+                        core_start=core[0] + 1, crosses_year=bool(core[-1] < core[0]), start_month=win[0] + 1, n_months=len(win), share=round(float(share), 3), peak_val=float(c[pk])))
+    return out
+
+
+def season_clock(v, start_month, n_months, data_end, first_year=2003, min_total=10.0, core_start=None):
+    """per year: onset = day 10% of the window's fire is reached, end = 90%, peak = centre of busiest 15 days.
+    `year` = calendar year in which the season's core starts (window may begin with a buffer month in the year before)."""
+    shift = int(core_start is not None and core_start < start_month); years = []
+    for y in range(first_year, data_end.year + 1):
+        a = pd.Timestamp(y, start_month, 1); b = a + pd.DateOffset(months=n_months) - pd.Timedelta(days=1)
+        if b > data_end: break
+        x = v.loc[a:b].values; tot = float(x.sum())
+        row = dict(year=y + shift, start=a.strftime("%Y-%m-%d"), total=round(tot, 1), onset=None, peak=None, end=None)
+        if tot >= min_total:
+            cum = np.cumsum(x) / tot; r = np.convolve(x, np.ones(15), "valid")
+            row.update(onset=int(np.argmax(cum >= 0.10)), end=int(np.argmax(cum >= 0.90)), peak=int(np.argmax(r)) + 7)
+        years.append(row)
+    ok = [r for r in years if r["onset"] is not None]
+    out = dict(years=years, n_years=len(ok))
+    if len(ok) >= 5:
+        out["typical"] = {k: int(np.median([r[k] for r in ok])) for k in ["onset", "peak", "end"]}
+    if len(ok) >= 8:
+        sl, lo, hi = theil_sen([r["year"] for r in ok], [r["onset"] for r in ok])
+        out["onset_trend"] = dict(days_per_decade=round(sl * 10, 1), lo=round(lo * 10, 1), hi=round(hi * 10, 1),
+                                  significant=bool(lo > 0 or hi < 0), years=[ok[0]["year"], ok[-1]["year"]])
+    return out
+
+
+def season(v, m, data_end):
+    """fire-season clock for each burning season of the area (most areas: one; Punjab-type: two)."""
+    clim = Engine.calendar(m).loc[2003:2021].median().reindex(range(1, 13)).values
+    seasons = find_seasons(clim)
+    for s in seasons:
+        s.update(season_clock(v, s["start_month"], s["n_months"], data_end, core_start=s["core_start"])); s.pop("peak_val")
+    return dict(seasons=seasons, base_years=[2003, 2021])
+
+
+def outlook(v, today, weeks=4, first_year=2003):
+    """what the next `weeks` weeks looked like in past years (climatology, NOT a forecast)."""
+    today = pd.Timestamp(today).normalize(); data_end = v.index.max(); rows = []
+    for w in range(weeks):
+        a = today + pd.Timedelta(days=7 * w); vals = []
+        for y in range(first_year, data_end.year + 1):
+            try: ay = a.replace(year=y)
+            except ValueError: ay = a.replace(year=y, day=28)  # 29 Feb
+            by = ay + pd.Timedelta(days=6)
+            if by <= data_end: vals.append(float(v.loc[ay:by].sum()))
+        q = np.percentile(vals, [10, 50, 90]) if vals else [np.nan] * 3
+        rows.append(dict(start=a.strftime("%Y-%m-%d"), end=(a + pd.Timedelta(days=6)).strftime("%Y-%m-%d"),
+                         p10=round(float(q[0]), 1), median=round(float(q[1]), 1), p90=round(float(q[2]), 1),
+                         recent=round(float(np.median(vals[-5:])), 1) if vals else None, n_years=len(vals)))
+    return dict(from_date=today.strftime("%Y-%m-%d"), weeks=rows,
+                base_years=[first_year, int(data_end.year)])
