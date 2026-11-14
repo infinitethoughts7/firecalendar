@@ -1,0 +1,52 @@
+{
+ "built": "2026-11-15 03:20 IST",
+ "countries": [
+  "India"
+ ],
+ "data_end": "2025-12-31",
+ "sensors": {
+  "starts": {
+   "terra": [
+    2000,
+    12
+   ],
+   "aqua": [
+    2002,
+    8
+   ],
+   "snpp": [
+    2012,
+    2
+   ],
+   "n20": [
+    2018,
+    5
+   ]
+  },
+  "snpp_end": "2026-11-02",
+  "modis_stable_end": 2021,
+  "errors": {
+   "terra": {
+    "block_month_R2": 0.8014168333744547,
+    "block_month_median_rel_err": 0.24470601346365628,
+    "yearly_bias_rms": 0.091710065510147
+   },
+   "snpp": {
+    "block_month_R2": 0.9780670418126999,
+    "block_month_median_rel_err": 0.16279756034903614,
+    "yearly_bias_rms": 0.05618945847763504
+   },
+   "n20": {
+    "block_month_R2": 0.9852812724651636,
+    "block_month_median_rel_err": 0.1810639929905704,
+    "yearly_bias_rms": 0.03482144773364877
+   }
+  }
+ },
+ "rel_err": {
+  "t": 0.24470601346365628,
+  "m": 0.0,
+  "v": 0.1810639929905704
+ },
+ "aqua_start": "2002-08"
+}

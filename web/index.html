@@ -67,7 +67,7 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
   <div class="tag">Is the burning in your area normal? 25 years of NASA satellite fire data, made comparable.</div>
   <div class="sp"></div>
   <a href="#methods" onclick="document.getElementById('methods').open=true">How it works</a>
-  <a href="/docs" target="_blank">API</a>
+  <a href="" id="repoLink" target="_blank" style="display:none">Code &amp; data</a>
 </header>
 <main>
   <section id="mapwrap">
@@ -139,7 +139,7 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
         <h3>Download and reuse</h3>
         <div class="row">
           <button class="btn primary" onclick="downloadCsv()">⬇ Download CSV</button>
-          <a class="btn" href="/docs" target="_blank">Open API</a>
+          <a class="btn" href="" id="repoBtn" target="_blank" style="display:none">Code, data &amp; API on GitHub</a>
         </div>
         <div class="muted" style="margin-top:8px">CSV has every month since 2000: the harmonized value, its low and high estimate, the method used, and the raw counts from each satellite.</div>
       </div>
@@ -153,11 +153,14 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<script src="firecal-data.js"></script>
 <script>
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const MONTHS_LONG=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const map=L.map('map',{zoomSnap:.5}).setView([22.5,80],4.5);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',maxZoom:12}).addTo(map);
+const COUNTRY='india';let META=null,AREA_CACHE=new Map(),GRID=null;
+const getJSON=async u=>{const r=await fetch(u);if(!r.ok)throw new Error(u+' '+r.status);return r.json()};
 let layers={},active='state',selected=null,current=null,AREAS=[],charts={};
 const drawn=new L.FeatureGroup().addTo(map);
 map.addControl(new L.Control.Draw({draw:{polyline:false,circle:false,circlemarker:false,marker:false,rectangle:{shapeOptions:{color:'#1e3a5f'}},polygon:{shapeOptions:{color:'#1e3a5f'}}},edit:{featureGroup:drawn,edit:false}}));
@@ -166,7 +169,7 @@ const baseStyle={color:'#1e3a5f',weight:.6,fillColor:'#1e3a5f',fillOpacity:.04};
 const hiStyle={color:'#dc2626',weight:2.2,fillColor:'#f59e0b',fillOpacity:.18};
 async function loadLayer(kind){
   if(layers[kind])return layers[kind];
-  const gj=await (await fetch('/api/boundaries/'+kind)).json();
+  const gj=await (await fetch(`data/${COUNTRY}/boundaries_${kind}.geojson`)).json();
   layers[kind]=L.geoJSON(gj,{style:baseStyle,onEachFeature:(f,l)=>{
     l.bindTooltip(f.properties.name+(f.properties.kind==='district'?', '+f.properties.state:''),{sticky:true});
     l.on('click',()=>selectLayer(l))}});
@@ -190,7 +193,7 @@ async function pick(text){
   layers[a.kind].eachLayer(l=>{if(l.feature.properties.id===a.id)selectLayer(l)});
 }
 document.getElementById('search').addEventListener('change',e=>pick(e.target.value));
-fetch('/api/areas').then(r=>r.json()).then(a=>{AREAS=a;document.getElementById('arealist').innerHTML=a.map(x=>`<option value="${areaLabel(x)}">`).join('')});
+fetch(`data/${COUNTRY}/areas.json`).then(r=>r.json()).then(a=>{AREAS=a;document.getElementById('arealist').innerHTML=a.map(x=>`<option value="${areaLabel(x)}">`).join('')});
 setLayer('state');
 
 let req=null,seq=0;
@@ -199,11 +202,16 @@ async function run(body,label,year,month){
   const my=++seq;  // only the latest request may render
   document.getElementById('empty').style.display='none';const res=document.getElementById('result');res.style.display='block';res.classList.add('loading');
   document.getElementById('areaName').textContent=label+' · loading…';
-  const r=await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)});
+  let j;
+  try{
+    META=META||await getJSON('data/meta.json');
+    let A;
+    if(req.id){A=AREA_CACHE.get(req.id)||await getJSON(`data/${COUNTRY}/areas/${req.id}.json`);AREA_CACHE.set(req.id,A)}
+    else{GRID=GRID||await getJSON(`data/${COUNTRY}/grid.json`);A=FC.drawnArea(GRID,META,req.geometry);label=`Your drawn area (approx., ${A.n_cells} cell${A.n_cells>1?'s':''} of ~55 km)`}
+    j=FC.buildResponse(A,META,req.year,req.month);
+  }catch(e){console.warn(e);if(my!==seq)return;res.classList.remove('loading');document.getElementById('areaName').textContent=label;document.getElementById('answer').textContent='Could not load this area.';return}
   if(my!==seq)return;
-  res.classList.remove('loading');
-  if(!r.ok){let m='Could not load this area.';try{m=(await r.json()).detail||m}catch(e){}document.getElementById('areaName').textContent=label;document.getElementById('answer').textContent=m;return}
-  const j=await r.json();if(my!==seq)return;current=j;current.label=label;render();
+  res.classList.remove('loading');current=j;current.label=label;render();
 }
 const fmt=v=>v==null?'–':v>=100?Math.round(v).toLocaleString('en-IN'):v>=10?v.toFixed(0):v.toFixed(1);
 function render(){
@@ -250,7 +258,7 @@ const dayLabel=(sm,off)=>{const t=new Date(Date.UTC(2001,sm-1,1)+off*864e5);retu
 function renderSeason(d,k){
   const card=document.getElementById('seasonCard'),S=(d.season&&d.season.seasons)||[];
   const tabs=document.getElementById('seasonTabs');
-  if(!S.length){tabs.innerHTML='';document.getElementById('seasonText').textContent='Too little fire here in a normal year to define a burning season.';document.getElementById('chSeason').style.display='none';return}
+  if(!S.length){tabs.innerHTML='';document.getElementById('seasonText').textContent=d.season&&d.season.drawn?'The fire-season clock needs daily data, so it is available for states and districts, not drawn areas.':'Too little fire here in a normal year to define a burning season.';document.getElementById('chSeason').style.display='none';return}
   document.getElementById('chSeason').style.display='block';
   tabs.innerHTML=S.length>1?S.map((x,i)=>`<button class="${i===k?'on':''}" onclick="renderSeason(current,${i})">${x.label} season · ${Math.round(x.share*100)}%</button>`).join(''):'';
   const s=S[k],sm=s.start_month,t=s.typical,tr=s.onset_trend;
@@ -272,6 +280,7 @@ function renderSeason(d,k){
   chart('chSeason').getDom().style.height=Math.max(220,ys.length*15+40)+'px';chart('chSeason').resize();
 }
 function renderOutlook(d){
+  document.getElementById('outlookCard').style.display=d.outlook?'block':'none';if(!d.outlook)return;
   const o=d.outlook,W=o.weeks,tot=W.reduce((a,w)=>a+w.p90,0);
   const nd=s=>{const t=new Date(s+'T00:00:00Z');return t.getUTCDate()+' '+MONTHS[t.getUTCMonth()]};
   let txt=`Live ${o.from_date.slice(0,4)} satellite data are not loaded yet, so this is <b>history, not a forecast</b>: how much fire these same weeks had in ${o.base_years[0]}–${o.base_years[1]} (MODIS-equivalent).`;
@@ -333,9 +342,8 @@ function renderMethods(d){
   <p><b>Limits.</b> A fire count is the number of satellite pixels flagged as burning on each pass, not the number of fires on the ground. Clouds and smoke hide fires, and short fires between passes are missed.</p>`;
 }
 async function downloadCsv(){
-  const r=await fetch('/api/csv',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(stripYM(req))});
-  const b=await r.blob(),u=URL.createObjectURL(b),a=document.createElement('a');
-  a.href=u;a.download=(r.headers.get('content-disposition')||'').split('filename=')[1]||'firecalendar.csv';a.click();URL.revokeObjectURL(u);
+  const b=new Blob([FC.toCsv(current,META)],{type:'text/csv'}),u=URL.createObjectURL(b),a=document.createElement('a');
+  a.href=u;a.download='firecalendar_'+current.label.replace(/\(.*\)/,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'').toLowerCase()+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
 }
 </script>
 </body>

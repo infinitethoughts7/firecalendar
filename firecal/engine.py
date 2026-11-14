@@ -191,3 +191,23 @@ def outlook(v, today, weeks=4, first_year=2003):
                          recent=round(float(np.median(vals[-5:])), 1) if vals else None, n_years=len(vals)))
     return dict(from_date=today.strftime("%Y-%m-%d"), weeks=rows,
                 base_years=[first_year, int(data_end.year)])
+
+
+def outlook_table(v, first_year=2003, recent=5):
+    """7-day fire totals starting on each calendar day (366 rows, MM-DD) across years -> p10/median/p90/recent median.
+    Lets a static site show the 4-week climatology from any date (row i, i+7, i+14, i+21). Feb 29 uses Feb 28 in non-leap years."""
+    data_end = v.index.max()
+    fwd = v[::-1].rolling(7, min_periods=7).sum()[::-1]          # fwd[t] = v[t..t+6]
+    days = pd.date_range("2024-01-01", "2024-12-31")             # leap year = all 366 MM-DD
+    rows = []
+    for dd in days:
+        vals = []
+        for y in range(first_year, data_end.year + 1):
+            try: t = dd.replace(year=y)
+            except ValueError: t = dd.replace(year=y, day=28)
+            if t + pd.Timedelta(days=6) <= data_end: vals.append(float(fwd.loc[t]))
+        q = np.percentile(vals, [10, 50, 90]) if vals else [np.nan] * 3
+        rows.append([round(float(q[0]), 1), round(float(q[1]), 1), round(float(q[2]), 1),
+                     round(float(np.median(vals[-recent:])), 1) if vals else None])
+    return dict(first_day="01-01", cols=["p10", "median", "p90", "recent"], rows=rows,
+                base_years=[first_year, int(data_end.year)])
