@@ -10,18 +10,19 @@
 <style>
 :root{--ink:#14213d;--muted:#5b6475;--line:#e3e6ec;--bg:#f6f7f9;--card:#fff;--fire1:#fde68a;--fire2:#f59e0b;--fire3:#dc2626;--fire4:#7f1d1d;--ok:#047857;--warn:#b45309;--bad:#b91c1c;--navy:#1e3a5f}
 *{box-sizing:border-box}
-body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+body{margin:0;display:flex;flex-direction:column;height:100vh;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
 header{display:flex;align-items:center;gap:16px;padding:12px 20px;background:var(--navy);color:#fff}
 header h1{font-size:20px;margin:0;font-weight:600;letter-spacing:.2px}
 header .tag{font-size:13px;opacity:.85}
 header .sp{flex:1}
 header a{color:#fff;font-size:13px;opacity:.9;margin-left:14px}
-main{display:grid;grid-template-columns:minmax(380px,44%) 1fr;height:calc(100vh - 56px)}
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(380px,44%) 1fr}
 #mapwrap{position:relative;border-right:1px solid var(--line)}
 #map{position:absolute;inset:0}
-.mapbar{position:absolute;z-index:500;top:10px;left:56px;right:10px;display:flex;gap:8px;flex-wrap:wrap}
+.mapbar{position:absolute;z-index:500;top:10px;left:56px;right:10px;display:flex;gap:6px}
 .mapbar input,.mapbar select,.mapbar button{height:34px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:#fff;font-size:14px}
-.mapbar input{flex:1;min-width:180px}
+.mapbar input{flex:1;min-width:0}
+.mapbar button{flex:none;cursor:pointer}
 .mapbar button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
 #panel{overflow-y:auto;padding:16px 20px 40px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
@@ -30,8 +31,9 @@ main{display:grid;grid-template-columns:minmax(380px,44%) 1fr;height:calc(100vh 
 .answer{font-size:22px;font-weight:600;line-height:1.3;margin:4px 0 8px}
 .pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.stat{flex:1;min-width:120px;background:var(--bg);border-radius:10px;padding:10px 12px}
-.stat b{display:block;font-size:20px}
+#stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:stretch}
+.stat{background:var(--bg);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;justify-content:flex-start}
+.stat b{display:block;font-size:20px;line-height:1.25;margin-bottom:2px}
 .stat span{font-size:12px;color:var(--muted)}
 .alert{border-color:#f59e0b;background:#fffbeb}
 .alert h3{color:#92400e}
@@ -48,11 +50,12 @@ table.mini th{background:var(--navy);color:#fff;font-weight:600;text-align:left;
 table.mini td{border-bottom:1px solid var(--line);padding:6px 8px}
 .team{position:relative;height:118px;margin-top:6px}
 .team .lane{position:absolute;left:96px;right:0;height:18px;border-radius:4px;font-size:11px;color:#fff;padding-left:6px;line-height:18px;white-space:nowrap;overflow:hidden}
-.team .lab{position:absolute;left:0;width:92px;font-size:12px;color:var(--muted);line-height:18px}
+.team .lab{position:absolute;left:0;width:92px;font-size:11px;white-space:nowrap;color:var(--muted);line-height:18px}
 .loading{opacity:.45;pointer-events:none}
 details summary{cursor:pointer;font-weight:600;font-size:14px}
-@media (max-width:900px){main{grid-template-columns:1fr;height:auto}#mapwrap{height:52vh}}
-@media (max-width:600px){header .tag{display:none}}
+@media (max-width:900px){body{height:auto}main{grid-template-columns:1fr}#mapwrap{height:52vh}#panel{overflow:visible;padding:14px 12px 32px}}
+@media (max-width:560px){#stats{grid-template-columns:repeat(2,1fr)}.answer{font-size:20px}}
+@media (max-width:600px){header .tag{display:none}header{padding:12px 14px}}
 </style>
 </head>
 <body>
@@ -67,7 +70,7 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
   <section id="mapwrap">
     <div id="map"></div>
     <div class="mapbar">
-      <input id="search" list="arealist" placeholder="Search a district or state, e.g. Sangrur, Khammam, Odisha">
+      <input id="search" list="arealist" placeholder="Search district or state…" title="e.g. Sangrur, Khammam, Odisha">
       <datalist id="arealist"></datalist>
       <button id="bState" class="on" onclick="setLayer('state')">States</button>
       <button id="bDist" onclick="setLayer('district')">Districts</button>
@@ -219,7 +222,7 @@ function renderBlind(d){
   const last=b.years[b.years.length-1];
   document.getElementById('blindText').innerHTML=`In this area's main burning months (${b.peak_months.map(m=>MONTHS_LONG[m-1]).join(', ')}), NASA's Aqua satellite now passes later in the afternoon (about ${Math.floor(last.aqua_time_ist)}:${String(Math.round(last.aqua_time_ist%1*60)).padStart(2,'0')} IST in ${last.year}, versus about 1:45 pm before 2022). Since then it sees <b>${last.relative}× more fires</b> than usual compared with the 1:30 pm VIIRS satellite. That pattern fits fires being lit later in the afternoon, after the main satellites pass, as ISRO and iFOREST studies have reported for Punjab and Haryana. So falling fire counts here may partly be fires the satellites missed.`;
   const ys=b.years.filter(y=>y.year>=2012);
-  chart('chBlind').setOption({grid:{left:44,right:44,top:30,bottom:28},tooltip:{trigger:'axis'},legend:{top:0,textStyle:{fontSize:11}},
+  chart('chBlind').setOption({grid:{left:4,right:4,top:34,bottom:4,containLabel:true},tooltip:{trigger:'axis'},legend:{top:0,textStyle:{fontSize:11}},
     xAxis:{type:'category',data:ys.map(y=>y.year)},
     yAxis:[{type:'value',name:'× usual',nameTextStyle:{fontSize:11}},{type:'value',name:'Aqua pass (IST)',min:13,max:16,nameTextStyle:{fontSize:11},axisLabel:{formatter:v=>Math.floor(v)+':'+String(Math.round(v%1*60)).padStart(2,'0')}}],
     series:[{name:'Aqua fires vs usual',type:'bar',data:ys.map(y=>y.relative),itemStyle:{color:'#f59e0b'}},
@@ -229,8 +232,8 @@ function renderCal(d){
   const data=[];d.calendar.years.forEach((y,i)=>d.calendar.values[i].forEach((v,j)=>{if(v!=null)data.push([j,i,Math.log10(v+1),v])}));
   const max=Math.max(1,...data.map(x=>x[2]));const a=d.anomaly;
   const c=chart('chCal');
-  c.setOption({grid:{left:44,right:16,top:8,bottom:56},tooltip:{formatter:p=>{const y=d.calendar.years[p.data[1]],m=p.data[0]+1;const r=d.monthly.find(x=>x.date===`${y}-${String(m).padStart(2,'0')}`)||{};return `${MONTHS_LONG[m-1]} ${y}<br><b>${fmt(p.data[3])}</b> fires (MODIS-eq.)`+(r.method==='viirs-translated'?'<br>translated from VIIRS':r.method==='terra-adjusted'?'<br>estimated from Terra only':'')}},
-    xAxis:{type:'category',data:MONTHS,splitArea:{show:true}},yAxis:{type:'category',data:d.calendar.years,inverse:true,axisLabel:{fontSize:10}},
+  c.setOption({grid:{left:4,right:12,top:8,bottom:48,containLabel:true},tooltip:{formatter:p=>{const y=d.calendar.years[p.data[1]],m=p.data[0]+1;const r=d.monthly.find(x=>x.date===`${y}-${String(m).padStart(2,'0')}`)||{};return `${MONTHS_LONG[m-1]} ${y}<br><b>${fmt(p.data[3])}</b> fires (MODIS-eq.)`+(r.method==='viirs-translated'?'<br>translated from VIIRS':r.method==='terra-adjusted'?'<br>estimated from Terra only':'')}},
+    xAxis:{type:'category',data:MONTHS,splitArea:{show:true}},yAxis:{type:'category',data:d.calendar.years,inverse:true,axisLabel:{fontSize:10,interval:0}},
     visualMap:{dimension:2,min:0,max:max,calculable:false,orient:'horizontal',left:'center',bottom:4,itemWidth:12,itemHeight:180,text:['more fire','less'],
       inRange:{color:['#fffbeb','#fde68a','#f59e0b','#dc2626','#7f1d1d']},formatter:v=>Math.round(Math.pow(10,v)-1)},
     series:[{type:'heatmap',data:data,emphasis:{itemStyle:{borderColor:'#111',borderWidth:1}},
@@ -239,7 +242,7 @@ function renderCal(d){
 }
 function renderTs(d){
   const x=d.monthly.map(r=>r.date);
-  chart('chTs').setOption({grid:{left:50,right:16,top:34,bottom:56},tooltip:{trigger:'axis'},legend:{top:0,textStyle:{fontSize:11},data:['FireCalendar (harmonized)','MODIS measured','VIIRS translated']},
+  chart('chTs').setOption({grid:{left:4,right:28,top:34,bottom:56,containLabel:true},tooltip:{trigger:'axis'},legend:{top:0,textStyle:{fontSize:11},data:['FireCalendar (harmonized)','MODIS measured','VIIRS translated']},
     dataZoom:[{type:'slider',height:18,bottom:8,start:55,end:100},{type:'inside'}],xAxis:{type:'category',data:x},yAxis:{type:'value'},
     series:[{name:'lo',type:'line',data:d.monthly.map(r=>r.lo),stack:'band',lineStyle:{opacity:0},symbol:'none',tooltip:{show:false}},
       {name:'band',type:'line',data:d.monthly.map(r=>Math.max(0,r.hi-r.lo)),stack:'band',lineStyle:{opacity:0},areaStyle:{color:'rgba(245,158,11,.25)'},symbol:'none',tooltip:{show:false}},
@@ -249,7 +252,7 @@ function renderTs(d){
 }
 function renderYr(d){
   const ys=d.yearly.filter(y=>y.year>=2001);
-  chart('chYr').setOption({grid:{left:56,right:16,top:16,bottom:30},tooltip:{trigger:'axis',formatter:p=>{const y=ys[p[0].dataIndex];return `${y.year}: <b>${fmt(y.value)}</b> fires<br>range ${fmt(y.lo)}–${fmt(y.hi)}`}},
+  chart('chYr').setOption({grid:{left:4,right:12,top:16,bottom:4,containLabel:true},tooltip:{trigger:'axis',formatter:p=>{const y=ys[p[0].dataIndex];return `${y.year}: <b>${fmt(y.value)}</b> fires<br>range ${fmt(y.lo)}–${fmt(y.hi)}`}},
     xAxis:{type:'category',data:ys.map(y=>y.year)},yAxis:{type:'value'},
     series:[{type:'bar',data:ys.map(y=>({value:y.value,itemStyle:{color:y.year<2003?'#fbbf24':y.year>d.sensors.modis_stable_end?'#a78bfa':'#f59e0b'}}))},
       {type:'custom',renderItem:(p,api)=>{const x=api.coord([api.value(0),api.value(1)]),h=api.coord([api.value(0),api.value(2)]);return{type:'line',shape:{x1:x[0],y1:x[1],x2:h[0],y2:h[1]},style:{stroke:'#333',lineWidth:1}}},data:ys.map((y,i)=>[i,y.lo,y.hi]),tooltip:{show:false}}]},true);
