@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.DS_Store
+.env
+data/raw/
+data/processed/parts/
+data/boundaries/raw/
+data/*.log
+data/test_touch
+.env.tmp
+.playwright-mcp/
+data/processed/fires_*.parquet

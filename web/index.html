@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FireCalendar · Is the burning in your area normal?</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+<style>
+:root{--ink:#14213d;--muted:#5b6475;--line:#e3e6ec;--bg:#f6f7f9;--card:#fff;--fire1:#fde68a;--fire2:#f59e0b;--fire3:#dc2626;--fire4:#7f1d1d;--ok:#047857;--warn:#b45309;--bad:#b91c1c;--navy:#1e3a5f}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+header{display:flex;align-items:center;gap:16px;padding:12px 20px;background:var(--navy);color:#fff}
+header h1{font-size:20px;margin:0;font-weight:600;letter-spacing:.2px}
+header .tag{font-size:13px;opacity:.85}
+header .sp{flex:1}
+header a{color:#fff;font-size:13px;opacity:.9;margin-left:14px}
+main{display:grid;grid-template-columns:minmax(380px,44%) 1fr;height:calc(100vh - 56px)}
+#mapwrap{position:relative;border-right:1px solid var(--line)}
+#map{position:absolute;inset:0}
+.mapbar{position:absolute;z-index:500;top:10px;left:56px;right:10px;display:flex;gap:8px;flex-wrap:wrap}
+.mapbar input,.mapbar select,.mapbar button{height:34px;border:1px solid var(--line);border-radius:8px;padding:0 10px;background:#fff;font-size:14px}
+.mapbar input{flex:1;min-width:180px}
+.mapbar button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+#panel{overflow-y:auto;padding:16px 20px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.card h3{margin:0 0 10px;font-size:15px;font-weight:600}
+.muted{color:var(--muted);font-size:13px;line-height:1.55}
+.answer{font-size:22px;font-weight:600;line-height:1.3;margin:4px 0 8px}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.stat{flex:1;min-width:120px;background:var(--bg);border-radius:10px;padding:10px 12px}
+.stat b{display:block;font-size:20px}
+.stat span{font-size:12px;color:var(--muted)}
+.alert{border-color:#f59e0b;background:#fffbeb}
+.alert h3{color:#92400e}
+select.small{height:30px;border:1px solid var(--line);border-radius:8px;padding:0 8px;font-size:13px}
+.chart{width:100%;height:300px}
+.chart.tall{height:420px}
+.btn{display:inline-block;height:34px;line-height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--navy);color:var(--navy);background:#fff;font-size:14px;cursor:pointer;text-decoration:none}
+.btn.primary{background:var(--navy);color:#fff}
+#empty{padding:40px 10px;text-align:center}
+#empty h2{font-size:22px;margin:0 0 8px}
+.legend span{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 4px 0 12px;vertical-align:middle}
+table.mini{width:100%;border-collapse:collapse;font-size:13px}
+table.mini th{background:var(--navy);color:#fff;font-weight:600;text-align:left;padding:6px 8px}
+table.mini td{border-bottom:1px solid var(--line);padding:6px 8px}
+.team{position:relative;height:118px;margin-top:6px}
+.team .lane{position:absolute;left:96px;right:0;height:18px;border-radius:4px;font-size:11px;color:#fff;padding-left:6px;line-height:18px;white-space:nowrap;overflow:hidden}
+.team .lab{position:absolute;left:0;width:92px;font-size:12px;color:var(--muted);line-height:18px}
+.loading{opacity:.45;pointer-events:none}
+details summary{cursor:pointer;font-weight:600;font-size:14px}
+@media (max-width:900px){main{grid-template-columns:1fr;height:auto}#mapwrap{height:52vh}}
+@media (max-width:600px){header .tag{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔥 FireCalendar</h1>
+  <div class="tag">Is the burning in your area normal? 25 years of NASA satellite fire data, made comparable.</div>
+  <div class="sp"></div>
+  <a href="#methods" onclick="document.getElementById('methods').open=true">How it works</a>
+  <a href="/docs" target="_blank">API</a>
+</header>
+<main>
+  <section id="mapwrap">
+    <div id="map"></div>
+    <div class="mapbar">
+      <input id="search" list="arealist" placeholder="Search a district or state, e.g. Sangrur, Khammam, Odisha">
+      <datalist id="arealist"></datalist>
+      <button id="bState" class="on" onclick="setLayer('state')">States</button>
+      <button id="bDist" onclick="setLayer('district')">Districts</button>
+    </div>
+  </section>
+  <section id="panel">
+    <div id="empty" class="card">
+      <h2>Pick an area to see its fire calendar</h2>
+      <p class="muted">Click a state or district on the map, search for one, or draw your own area with the ✏️ tool on the map.<br>Try <a href="#" onclick="pick('Sangrur');return false">Sangrur, Punjab</a> (stubble burning) or <a href="#" onclick="pick('Khammam');return false">Khammam, Telangana</a>.</p>
+    </div>
+    <div id="result" style="display:none">
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div class="muted" id="areaName" style="font-size:14px;font-weight:600;color:var(--ink)"></div>
+          <div class="row">
+            <select class="small" id="selMonth"></select>
+            <select class="small" id="selYear"></select>
+          </div>
+        </div>
+        <div class="answer" id="answer"></div>
+        <div class="muted" id="answerDetail"></div>
+        <div class="row" style="margin-top:12px" id="stats"></div>
+      </div>
+      <div class="card alert" id="blind" style="display:none">
+        <h3>⚠️ Satellites may be missing fires here</h3>
+        <div class="muted" id="blindText"></div>
+        <div id="chBlind" class="chart" style="height:220px"></div>
+      </div>
+      <div class="card">
+        <h3>Burning calendar <span class="muted" style="font-weight:400">· fires per month, one consistent unit (MODIS-equivalent)</span></h3>
+        <div class="muted">Darker = more fire. Click any square to check that month.</div>
+        <div id="chCal" class="chart tall"></div>
+      </div>
+      <div class="card">
+        <h3>Month by month</h3>
+        <div class="muted">Shaded band = honest uncertainty from our validation. Dotted lines show each satellite family on its own.</div>
+        <div id="chTs" class="chart"></div>
+      </div>
+      <div class="card">
+        <h3>Year by year</h3>
+        <div id="chYr" class="chart" style="height:260px"></div>
+      </div>
+      <div class="card">
+        <h3>Which satellites were watching</h3>
+        <div class="muted">More or sharper cameras means more fire dots even when the fires didn't change. FireCalendar corrects for this.</div>
+        <div class="team" id="team"></div>
+      </div>
+      <div class="card">
+        <h3>Download and reuse</h3>
+        <div class="row">
+          <button class="btn primary" onclick="downloadCsv()">⬇ Download CSV</button>
+          <a class="btn" href="/docs" target="_blank">Open API</a>
+        </div>
+        <div class="muted" style="margin-top:8px">CSV has every month since 2000: the harmonized value, its low and high estimate, the method used, and the raw counts from each satellite.</div>
+      </div>
+    </div>
+    <details class="card" id="methods">
+      <summary>How it works (methods and validation)</summary>
+      <div class="muted" id="methodsBody" style="margin-top:10px"></div>
+    </details>
+  </section>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<script>
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTHS_LONG=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const map=L.map('map',{zoomSnap:.5}).setView([22.5,80],4.5);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',maxZoom:12}).addTo(map);
+let layers={},active='state',selected=null,current=null,AREAS=[],charts={};
+const drawn=new L.FeatureGroup().addTo(map);
+map.addControl(new L.Control.Draw({draw:{polyline:false,circle:false,circlemarker:false,marker:false,rectangle:{shapeOptions:{color:'#1e3a5f'}},polygon:{shapeOptions:{color:'#1e3a5f'}}},edit:{featureGroup:drawn,edit:false}}));
+map.on(L.Draw.Event.CREATED,e=>{drawn.clearLayers();drawn.addLayer(e.layer);if(selected)selected.setStyle(baseStyle);selected=null;run({geometry:e.layer.toGeoJSON().geometry},'Your drawn area')});
+const baseStyle={color:'#1e3a5f',weight:.6,fillColor:'#1e3a5f',fillOpacity:.04};
+const hiStyle={color:'#dc2626',weight:2.2,fillColor:'#f59e0b',fillOpacity:.18};
+async function loadLayer(kind){
+  if(layers[kind])return layers[kind];
+  const gj=await (await fetch('/api/boundaries/'+kind)).json();
+  layers[kind]=L.geoJSON(gj,{style:baseStyle,onEachFeature:(f,l)=>{
+    l.bindTooltip(f.properties.name+(f.properties.kind==='district'?', '+f.properties.state:''),{sticky:true});
+    l.on('click',()=>selectLayer(l))}});
+  return layers[kind];
+}
+async function setLayer(kind){
+  active=kind;document.getElementById('bState').classList.toggle('on',kind==='state');document.getElementById('bDist').classList.toggle('on',kind==='district');
+  for(const k in layers)map.removeLayer(layers[k]);(await loadLayer(kind)).addTo(map);
+}
+function selectLayer(l){
+  if(selected)selected.setStyle(baseStyle);selected=l;l.setStyle(hiStyle);drawn.clearLayers();
+  map.fitBounds(l.getBounds(),{maxZoom:8,padding:[30,30]});
+  const p=l.feature.properties;run({id:p.id},p.name+(p.kind==='district'?', '+p.state:''));
+}
+const areaLabel=x=>x.name+(x.kind==='district'?', '+x.state:'');
+async function pick(text){
+  const q=text.trim().toLowerCase(),name=q.split(',')[0].trim();   // full "district, state" first: names like Aurangabad repeat across states
+  const a=AREAS.find(x=>areaLabel(x).toLowerCase()===q)||AREAS.find(x=>x.name.toLowerCase()===name)||AREAS.find(x=>x.name.toLowerCase().startsWith(name));
+  if(!a)return;
+  if(a.kind!==active)await setLayer(a.kind);
+  layers[a.kind].eachLayer(l=>{if(l.feature.properties.id===a.id)selectLayer(l)});
+}
+document.getElementById('search').addEventListener('change',e=>pick(e.target.value));
+fetch('/api/areas').then(r=>r.json()).then(a=>{AREAS=a;document.getElementById('arealist').innerHTML=a.map(x=>`<option value="${areaLabel(x)}">`).join('')});
+setLayer('state');
+
+let req=null,seq=0;
+async function run(body,label,year,month){
+  req=Object.assign({},body);if(year){req.year=year;req.month=month}
+  const my=++seq;  // only the latest request may render
+  document.getElementById('empty').style.display='none';const res=document.getElementById('result');res.style.display='block';res.classList.add('loading');
+  document.getElementById('areaName').textContent=label+' · loading…';
+  const r=await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)});
+  if(my!==seq)return;
+  res.classList.remove('loading');
+  if(!r.ok){document.getElementById('answer').textContent='Could not load this area.';return}
+  const j=await r.json();if(my!==seq)return;current=j;current.label=label;render();
+}
+const fmt=v=>v==null?'–':v>=100?Math.round(v).toLocaleString('en-IN'):v>=10?v.toFixed(0):v.toFixed(1);
+function render(){
+  const d=current,a=d.anomaly;
+  document.getElementById('areaName').textContent=d.label+' · '+d.n_points.toLocaleString('en-IN')+' satellite fire detections since 2000';
+  const sy=document.getElementById('selYear'),sm=document.getElementById('selMonth');
+  sy.innerHTML=d.calendar.years.map(y=>`<option ${y===a.year?'selected':''}>${y}</option>`).join('');
+  sm.innerHTML=MONTHS_LONG.map((m,i)=>`<option value="${i+1}" ${i+1===a.month?'selected':''}>${m}</option>`).join('');
+  sy.onchange=sm.onchange=()=>run(stripYM(req),d.label,+sy.value,+sm.value);
+  const colors={'much higher than usual':'#b91c1c','higher than usual':'#c2410c','normal':'#047857','lower than usual':'#1d4ed8','much lower than usual':'#1e3a8a','too little fire to compare':'#5b6475'};
+  const m=d.monthly.find(x=>x.date===`${a.year}-${String(a.month).padStart(2,'0')}`)||{};
+  document.getElementById('answer').innerHTML=`${MONTHS_LONG[a.month-1]} ${a.year}: <span style="color:${colors[a.label]}">${a.label}</span>`;
+  let det;
+  if(a.label==='too little fire to compare'){det=`Very few fires were detected here in ${MONTHS_LONG[a.month-1]} in any year, so there is nothing meaningful to compare.`}
+  else{det=`About <b>${fmt(a.value)}</b> fires (MODIS-equivalent${m.lo!=null&&m.hi!==m.lo?`, likely range ${fmt(m.lo)}–${fmt(m.hi)}`:''}) compared with a normal ${MONTHS_LONG[a.month-1]} of <b>${fmt(a.median)}</b>`+
+   (a.ratio!=null?` (<b>${a.ratio>=1?a.ratio.toFixed(1)+'×':Math.round(a.ratio*100)+'%'}</b> of normal)`:'')+
+   `. Higher than ${Math.round(a.percentile)}% of ${MONTHS_LONG[a.month-1]}s from ${a.base_years[0]} to ${a.base_years[1]}.`}
+  if(d.blind_spot&&d.blind_spot.flag&&a.ratio!=null&&a.ratio<1)det+=` <b style="color:#92400e">But see the warning below: part of this drop may be fires burning when satellites are not looking.</b>`;
+  document.getElementById('answerDetail').innerHTML=det;
+  const methodTxt={'modis-measured':'Measured by MODIS (Terra + Aqua)','viirs-translated':'Translated from VIIRS (MODIS orbit drift period)','terra-adjusted':'Estimated from Terra alone (before Aqua)'};
+  document.getElementById('stats').innerHTML=[
+    [fmt(a.value),'fires this month'],[fmt(a.median),'normal for this month'],[Math.round(a.percentile)+'%','of past years were lower'],[methodTxt[m.method]||'–','how this month was measured']]
+    .map(([b,s])=>`<div class="stat"><b style="${b.length>12?'font-size:13px;line-height:1.3':''}">${b}</b><span>${s}</span></div>`).join('');
+  renderBlind(d);renderCal(d);renderTs(d);renderYr(d);renderTeam(d);renderMethods(d);
+}
+function stripYM(r){const o=Object.assign({},r);delete o.year;delete o.month;return o}
+function chart(id){if(!charts[id])charts[id]=echarts.init(document.getElementById(id));return charts[id]}
+window.addEventListener('resize',()=>Object.values(charts).forEach(c=>c.resize()));
+function renderBlind(d){
+  const b=d.blind_spot,el=document.getElementById('blind');
+  if(!b||!b.flag){el.style.display='none';return}
+  el.style.display='block';
+  const last=b.years[b.years.length-1];
+  document.getElementById('blindText').innerHTML=`In this area's main burning months (${b.peak_months.map(m=>MONTHS_LONG[m-1]).join(', ')}), NASA's Aqua satellite now passes later in the afternoon (about ${Math.floor(last.aqua_time_ist)}:${String(Math.round(last.aqua_time_ist%1*60)).padStart(2,'0')} IST in ${last.year}, versus about 1:45 pm before 2022). Since then it sees <b>${last.relative}× more fires</b> than usual compared with the 1:30 pm VIIRS satellite. That pattern fits fires being lit later in the afternoon, after the main satellites pass, as ISRO and iFOREST studies have reported for Punjab and Haryana. So falling fire counts here may partly be fires the satellites missed.`;
+  const ys=b.years.filter(y=>y.year>=2012);
+  chart('chBlind').setOption({grid:{left:44,right:44,top:30,bottom:28},tooltip:{trigger:'axis'},legend:{top:0,textStyle:{fontSize:11}},
+    xAxis:{type:'category',data:ys.map(y=>y.year)},
+    yAxis:[{type:'value',name:'× usual',nameTextStyle:{fontSize:11}},{type:'value',name:'Aqua pass (IST)',min:13,max:16,nameTextStyle:{fontSize:11},axisLabel:{formatter:v=>Math.floor(v)+':'+String(Math.round(v%1*60)).padStart(2,'0')}}],
+    series:[{name:'Aqua fires vs usual',type:'bar',data:ys.map(y=>y.relative),itemStyle:{color:'#f59e0b'}},
+            {name:'Aqua pass time',type:'line',yAxisIndex:1,data:ys.map(y=>y.aqua_time_ist),itemStyle:{color:'#1e3a5f'}}]},true);
+}
+function renderCal(d){
+  const data=[];d.calendar.years.forEach((y,i)=>d.calendar.values[i].forEach((v,j)=>{if(v!=null)data.push([j,i,Math.log10(v+1),v])}));
+  const max=Math.max(1,...data.map(x=>x[2]));const a=d.anomaly;
+  const c=chart('chCal');
+  c.setOption({grid:{left:44,right:16,top:8,bottom:56},tooltip:{formatter:p=>{const y=d.calendar.years[p.data[1]],m=p.data[0]+1;const r=d.monthly.find(x=>x.date===`${y}-${String(m).padStart(2,'0')}`)||{};return `${MONTHS_LONG[m-1]} ${y}<br><b>${fmt(p.data[3])}</b> fires (MODIS-eq.)`+(r.method==='viirs-translated'?'<br>translated from VIIRS':r.method==='terra-adjusted'?'<br>estimated from Terra only':'')}},
+    xAxis:{type:'category',data:MONTHS,splitArea:{show:true}},yAxis:{type:'category',data:d.calendar.years,inverse:true,axisLabel:{fontSize:10}},
+    visualMap:{dimension:2,min:0,max:max,calculable:false,orient:'horizontal',left:'center',bottom:4,itemWidth:12,itemHeight:180,text:['more fire','less'],
+      inRange:{color:['#fffbeb','#fde68a','#f59e0b','#dc2626','#7f1d1d']},formatter:v=>Math.round(Math.pow(10,v)-1)},
+    series:[{type:'heatmap',data:data,emphasis:{itemStyle:{borderColor:'#111',borderWidth:1}},
+      markPoint:{symbol:'rect',symbolSize:[18,9],itemStyle:{color:'transparent',borderColor:'#1e3a5f',borderWidth:2},data:[{coord:[a.month-1,d.calendar.years.indexOf(a.year)]}]}}]},true);
+  c.off('click');c.on('click',p=>{if(p.componentType==='series')run(stripYM(req),d.label,d.calendar.years[p.data[1]],p.data[0]+1)});
+}
+function renderTs(d){
+  const x=d.monthly.map(r=>r.date);
+  chart('chTs').setOption({grid:{left:50,right:16,top:34,bottom:56},tooltip:{trigger:'axis'},legend:{top:0,textStyle:{fontSize:11},data:['FireCalendar (harmonized)','MODIS measured','VIIRS translated']},
+    dataZoom:[{type:'slider',height:18,bottom:8,start:55,end:100},{type:'inside'}],xAxis:{type:'category',data:x},yAxis:{type:'value'},
+    series:[{name:'lo',type:'line',data:d.monthly.map(r=>r.lo),stack:'band',lineStyle:{opacity:0},symbol:'none',tooltip:{show:false}},
+      {name:'band',type:'line',data:d.monthly.map(r=>Math.max(0,r.hi-r.lo)),stack:'band',lineStyle:{opacity:0},areaStyle:{color:'rgba(245,158,11,.25)'},symbol:'none',tooltip:{show:false}},
+      {name:'FireCalendar (harmonized)',type:'line',data:d.monthly.map(r=>r.value),symbol:'none',lineStyle:{width:2,color:'#dc2626'},itemStyle:{color:'#dc2626'}},
+      {name:'MODIS measured',type:'line',data:d.monthly.map(r=>r.modis),symbol:'none',lineStyle:{width:1,type:'dotted',color:'#1e3a5f'},itemStyle:{color:'#1e3a5f'}},
+      {name:'VIIRS translated',type:'line',data:d.monthly.map(r=>r.viirs_eq),symbol:'none',lineStyle:{width:1,type:'dotted',color:'#7c3aed'},itemStyle:{color:'#7c3aed'}}]},true);
+}
+function renderYr(d){
+  const ys=d.yearly.filter(y=>y.year>=2001);
+  chart('chYr').setOption({grid:{left:56,right:16,top:16,bottom:30},tooltip:{trigger:'axis',formatter:p=>{const y=ys[p[0].dataIndex];return `${y.year}: <b>${fmt(y.value)}</b> fires<br>range ${fmt(y.lo)}–${fmt(y.hi)}`}},
+    xAxis:{type:'category',data:ys.map(y=>y.year)},yAxis:{type:'value'},
+    series:[{type:'bar',data:ys.map(y=>({value:y.value,itemStyle:{color:y.year<2003?'#fbbf24':y.year>d.sensors.modis_stable_end?'#a78bfa':'#f59e0b'}}))},
+      {type:'custom',renderItem:(p,api)=>{const x=api.coord([api.value(0),api.value(1)]),h=api.coord([api.value(0),api.value(2)]);return{type:'line',shape:{x1:x[0],y1:x[1],x2:h[0],y2:h[1]},style:{stroke:'#333',lineWidth:1}}},data:ys.map((y,i)=>[i,y.lo,y.hi]),tooltip:{show:false}}]},true);
+}
+function renderTeam(d){
+  const s=d.sensors.starts,y0=2000,y1=2027,pct=v=>((v-y0)/(y1-y0)*100);
+  const lanes=[['Terra (MODIS)',s.terra[0]+s.terra[1]/12,2026.9,'#3b82f6','orbit drifting since 2022'],['Aqua (MODIS)',s.aqua[0]+s.aqua[1]/12,2026.9,'#1e3a5f','orbit drifting since 2022'],
+    ['S-NPP (VIIRS)',s.snpp[0]+s.snpp[1]/12,2026+10/12,'#f59e0b','ended 2 Nov 2026'],['NOAA-20 (VIIRS)',s.n20[0]+s.n20[1]/12,2026.9,'#8b5cf6','']];
+  document.getElementById('team').innerHTML=lanes.map((l,i)=>`<div class="lab" style="top:${i*24}px">${l[0]}</div><div class="lane" style="top:${i*24}px;left:calc(96px + (100% - 96px)*${pct(l[1])/100});width:calc((100% - 96px)*${(pct(l[2])-pct(l[1]))/100});background:${l[3]}">${l[4]}</div>`).join('')+
+    `<div class="lab" style="top:100px;left:96px;width:auto">2000</div><div class="lab" style="top:100px;left:calc(96px + (100% - 96px)*${pct(2012)/100});width:auto">2012</div><div class="lab" style="top:100px;left:calc(96px + (100% - 96px)*${pct(2022)/100});width:auto">2022</div>`;
+}
+function renderMethods(d){
+  const e=d.sensors.errors,pc=v=>Math.round(v*100)+'%';
+  document.getElementById('methodsBody').innerHTML=`
+  <p><b>Data.</b> NASA FIRMS active-fire detections: MODIS Collection 6.1 (Terra from Nov 2000, Aqua from Jul 2002) and VIIRS 375 m (S-NPP from Jan 2012, NOAA-20 from Apr 2018). We keep vegetation fires only (type 0) and drop low-confidence detections.</p>
+  <p><b>The problem.</b> The sensors count differently: VIIRS has smaller pixels and sees smaller fires, so it reports about 5–6× more detections. The ratio changes by region and season, so one multiplier is wrong.</p>
+  <p><b>One unit.</b> Everything is expressed as <i>MODIS-equivalent</i> fire counts. 2002–2021: MODIS (Terra + Aqua) as measured. Before Aqua (2000–02): Terra counts scaled by a learned Terra→Terra+Aqua factor. From 2022, when Terra and Aqua orbits drift to different times of day, we use VIIRS translated into MODIS-equivalent with factors learned per 0.5° cell and calendar month on 2012–2021, shrunk toward the monthly average where data are thin.</p>
+  <p><b>Validation (leave-one-year-out).</b> Each year was hidden in turn, factors learned on the other years, and the hidden year predicted from VIIRS alone.</p>
+  <table class="mini"><tr><th>Translator</th><th>R² (≈200 km, monthly)</th><th>Typical monthly error</th><th>Yearly total error</th></tr>
+  <tr><td>S-NPP → MODIS-eq.</td><td>${e.snpp.block_month_R2.toFixed(3)}</td><td>±${pc(e.snpp.block_month_median_rel_err)}</td><td>±${pc(e.snpp.yearly_bias_rms)}</td></tr>
+  <tr><td>NOAA-20 → MODIS-eq.</td><td>${e.n20.block_month_R2.toFixed(3)}</td><td>±${pc(e.n20.block_month_median_rel_err)}</td><td>±${pc(e.n20.yearly_bias_rms)}</td></tr>
+  <tr><td>Terra only → Terra+Aqua</td><td>${e.terra.block_month_R2.toFixed(3)}</td><td>±${pc(e.terra.block_month_median_rel_err)}</td><td>±${pc(e.terra.yearly_bias_rms)}</td></tr></table>
+  <p style="margin-top:10px"><b>“Is it unusual?”</b> The chosen month is compared with the same month in all other years since 2003 (earlier years only, once eight or more exist). Normal = the median; the percentile says how many past years were lower.</p>
+  <p><b>Blind-spot check.</b> Polar satellites only photograph a place at fixed times (about 10:30 am, 1:30 pm, 1:30 am). Aqua's orbit has drifted later since 2022, so it now acts as a later-afternoon witness. If, in an area's main burning months, Aqua sees ≥1.5× more fires than it used to relative to the 1:30 pm VIIRS satellite, we warn that falling counts may partly be fires burning outside satellite view.</p>
+  <p><b>Limits.</b> A fire count is the number of satellite pixels flagged as burning on each pass, not the number of fires on the ground. Clouds and smoke hide fires, and short fires between passes are missed.</p>`;
+}
+async function downloadCsv(){
+  const r=await fetch('/api/csv',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(stripYM(req))});
+  const b=await r.blob(),u=URL.createObjectURL(b),a=document.createElement('a');
+  a.href=u;a.download=(r.headers.get('content-disposition')||'').split('filename=')[1]||'firecalendar.csv';a.click();URL.revokeObjectURL(u);
+}
+</script>
+</body>
+</html>
