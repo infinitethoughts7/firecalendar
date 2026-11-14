@@ -92,6 +92,11 @@ seen, end = 90%, peak = busiest 15 days; trend = Theil–Sen slope of the start 
     colour scale used raw counts instead of log → fixed. [15 Nov]
 20. Daily series checked against monthly: identical to floating-point precision (max diff ~1e-13). Theil–Sen
     implementation checked on a known line (slope 2.0 exactly). [15 Nov]
+22. **Static site == live API:** browser data layer reproduces `/api/query` for 200 of 200 random area/month cases
+    (`test/compare_static.js`). Drawn areas use 0.5° cells: cell-aligned shapes match exactly; other shapes within ~5–8%,
+    same anomaly labels. [verified, 15 Nov]
+23. **Live, no login:** https://firecalendar-ten.vercel.app (Vercel, static, 22 MB). Tested 15 Nov: Sangrur, Odisha,
+    month selector, drawn area (4 cells), CSV (303 rows), 390 px phone width, console clean. [verified, 15 Nov]
 21. Public-server hardening: drawn areas are capped (≤2,000 vertices, ≤40 sq° area, ≤60 sq° bounding box, must overlap
     the country); only small aggregates are cached. [15 Nov]
 
