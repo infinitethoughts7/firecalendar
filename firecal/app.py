@@ -100,7 +100,7 @@ def query(a: Area):
     peak = yv.idxmax() if yv.notna().any() and yv.max() > 0 else end
     yr, mo = a.year or peak.year, a.month or peak.month
     if yr not in cal.index: raise HTTPException(400, "year out of range")
-    an = E.anomaly(m, yr, mo)
+    an = E.anomaly(m, yr, mo, partial=E.partial)
     yearly = m.assign(yr=m.index.year).groupby("yr").agg(value=("value", "sum"), lo=("lo", "sum"), hi=("hi", "sum"),
                                                         modis=("modis", "sum"), viirs_eq=("viirs_eq", "sum"))
     clim = cal.loc[2003:2021]

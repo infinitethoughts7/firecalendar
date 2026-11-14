@@ -44,7 +44,7 @@ def grid_json(country):
                satellite, count(*) AS n,
                count(*) FILTER (WHERE {ist} > 8 AND {ist} < 20) AS nd,
                sum({ist}) FILTER (WHERE {ist} > 8 AND {ist} < 20) AS ist_sum
-        FROM '{E.fires}' WHERE type=0 AND conf_class<>'low' GROUP BY ALL""").df()
+        FROM {E.fires} WHERE type=0 AND conf_class<>'low' GROUP BY ALL""").df()
     w = df.pivot_table(index=["cy", "cx", "yr", "mo"], columns="satellite", values="n", aggfunc="sum", fill_value=0)
     w = w.rename(columns={"Terra": "terra", "Aqua": "aqua", "N": "snpp", "N20": "n20"}).reset_index()
     for col in ["terra", "aqua", "snpp", "n20"]:

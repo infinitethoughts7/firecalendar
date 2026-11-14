@@ -4,11 +4,16 @@ from shapely import contains_xy
 from shapely.geometry import shape, box
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 P = f"{ROOT}/data/processed"
+SNPP_END = pd.Timestamp("2026-11-02")      # S-NPP fire data production ceased 2 Nov 2026 (FIRMS FAQ)
 
 class Engine:
     def __init__(self, country="India"):
         k = country.lower()
-        self.country, self.fires = country, f"{P}/fires_{k}.parquet"
+        files = [f"{P}/fires_{k}.parquet"] + ([f"{P}/fires_{k}_2026.parquet"] if os.path.exists(f"{P}/fires_{k}_2026.parquet") else [])
+        self.country, self.files = country, files
+        self.fires = "read_parquet([" + ",".join(f"'{f}'" for f in files) + "], union_by_name=true)"   # archive + 2026
+        x = json.load(open(f"{P}/fires_{k}_2026.json")) if len(files) > 1 else {}
+        self.provisional_from = min(x["provisional_from"].values()) if x.get("provisional_from") else None
         self.err = json.load(open(f"{P}/errors_{k}.json"))
         self.cell = self.err["cell_deg"]; self.stable_end = self.err["stable_end"]
         f = pd.read_parquet(f"{P}/factors_{k}.parquet")
@@ -16,14 +21,16 @@ class Engine:
         self.mo = {s: pd.read_parquet(f"{P}/monthratio_{s}_{k}.parquet").drop(columns="src") for s in ["terra", "snpp", "n20"]}
         self.db = duckdb.connect(); self.db.execute("SET memory_limit='2GB'")
         ay, am = self.err["starts"]["aqua"]; self.aqua_start = pd.Timestamp(ay, am, 1)
-        end, x0, y0, x1, y1 = self.db.execute(f"SELECT max(date), min(lon), min(lat), max(lon), max(lat) FROM '{self.fires}'").fetchone()
+        end, x0, y0, x1, y1 = self.db.execute(f"SELECT max(date), min(lon), min(lat), max(lon), max(lat) FROM {self.fires}").fetchone()
         self.data_end = pd.Timestamp(end)          # same time axis for every area
+        me = self.data_end + pd.offsets.MonthEnd(0)
+        self.partial = (self.data_end.year, self.data_end.month) if self.data_end < me else None   # last month incomplete
         self.bounds = (x0, y0, x1, y1)             # country data extent, used to reject drawn areas elsewhere
 
     def points(self, geom):
         """vegetation-fire points (low confidence removed) inside a shapely geometry."""
         x0, y0, x1, y1 = geom.bounds
-        df = self.db.execute(f"""SELECT lat, lon, date, satellite, sensor, time_utc, frp FROM '{self.fires}'
+        df = self.db.execute(f"""SELECT lat, lon, date, satellite, sensor, time_utc, frp FROM {self.fires}
             WHERE type=0 AND conf_class<>'low' AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?""", [y0, y1, x0, x1]).df()
         if not geom.equals(box(x0, y0, x1, y1)):
             df = df[contains_xy(geom, df.lon.values, df.lat.values)]
@@ -57,11 +64,18 @@ class Engine:
     def daily_value(self, d):
         """daily harmonized MODIS-equivalent value, same method switch as monthly()."""
         e = self.err
-        has_s = d.index >= pd.Timestamp(*e["starts"]["snpp"], 1); has_n = d.index >= pd.Timestamp(*e["starts"]["n20"], 1)
-        v_mean = np.where(has_s & has_n, (d.snpp_eq + d.n20_eq) / 2, np.where(has_s, d.snpp_eq, d.n20_eq))
+        v_mean = self._viirs_daily(d)
         stable_end = pd.Timestamp(self.stable_end, 12, 31)
         v = np.select([d.index < self.aqua_start, d.index <= stable_end], [d.terra_eq, d.terra + d.aqua], v_mean)
         return pd.Series(v, index=d.index, name="value")
+
+    def _viirs_daily(self, d):
+        """daily VIIRS->MODIS-eq: mean of S-NPP and NOAA-20 when both fly, else the one that does (NaN before VIIRS)."""
+        e = self.err
+        has_s = (d.index >= pd.Timestamp(*e["starts"]["snpp"], 1)) & (d.index <= SNPP_END)
+        has_n = d.index >= pd.Timestamp(*e["starts"]["n20"], 1)
+        return pd.Series(np.where(has_s & has_n, (d.snpp_eq + d.n20_eq) / 2,
+                                  np.where(has_s, d.snpp_eq, np.where(has_n, d.n20_eq, np.nan))), index=d.index)
 
     def monthly(self, geom):
         d, pts = self.daily(geom)
@@ -71,9 +85,8 @@ class Engine:
         m = d.resample("MS").sum()
         e = self.err
         m["modis"] = m.terra + m.aqua
-        viirs = m[["snpp_eq", "n20_eq"]].where((m[["snpp", "n20"]].values > 0) | (m.index.year.values[:, None] >= 2000))
-        has_s = m.index >= pd.Timestamp(*e["starts"]["snpp"], 1); has_n = m.index >= pd.Timestamp(*e["starts"]["n20"], 1)
-        v_mean = np.where(has_s & has_n, (m.snpp_eq + m.n20_eq) / 2, np.where(has_s, m.snpp_eq, m.n20_eq))
+        vd = self._viirs_daily(d)                                   # summed per month: handles S-NPP ending mid-month
+        v_mean = vd.resample("MS").sum(min_count=1).reindex(m.index).values
         stable_end = pd.Timestamp(self.stable_end, 12, 1)
         m["method"] = np.select([m.index < self.aqua_start, m.index <= stable_end], ["terra-adjusted", "modis-measured"], "viirs-translated")
         m["value"] = np.select([m.method == "terra-adjusted", m.method == "modis-measured"], [m.terra_eq, m.modis], v_mean)
@@ -81,7 +94,7 @@ class Engine:
                "viirs-translated": max(e["snpp"]["block_month_median_rel_err"], e["n20"]["block_month_median_rel_err"])}
         m["rel_err"] = m.method.map(rel)
         m["lo"], m["hi"] = m.value * (1 - m.rel_err), m.value * (1 + m.rel_err)
-        m["viirs_eq"] = np.where(has_s | has_n, v_mean, np.nan)
+        m["viirs_eq"] = v_mean
         return m.drop(columns=[c for c in m.columns if c.endswith("_eq") and c != "viirs_eq"])
 
     @staticmethod
@@ -90,15 +103,19 @@ class Engine:
         return c.reindex(columns=range(1, 13))
 
     @staticmethod
-    def anomaly(m, year, month, first_full_year=2003):
+    def anomaly(m, year, month, first_full_year=2003, partial=None):
+        """partial = (year, month) of an unfinished last month: never used as history, and flagged when it is the target."""
         cal = Engine.calendar(m)
         cur = cal.loc[year, month]
+        if partial and month == partial[1] and year != partial[0]: cal.loc[partial[0], month] = np.nan
         base = cal.loc[(cal.index >= first_full_year) & (cal.index != year), month].dropna()
         base = base[base.index < year] if (base.index < year).sum() >= 8 else base
         med = float(base.median())
         pct = float(((base < cur).mean() + 0.5 * (base == cur).mean()) * 100)     # ties count half
         ratio = cur / med if med > 0 else np.nan
-        if med < 3 and cur < 3:
+        if partial and (year, month) == tuple(partial):
+            label = "month not finished yet"
+        elif med < 3 and cur < 3:
             label = "too little fire to compare"
         else:
             label = ("much higher than usual" if pct >= 90 else "higher than usual" if pct >= 75 else
