@@ -16,7 +16,9 @@ class Engine:
         self.mo = {s: pd.read_parquet(f"{P}/monthratio_{s}_{k}.parquet").drop(columns="src") for s in ["terra", "snpp", "n20"]}
         self.db = duckdb.connect(); self.db.execute("SET memory_limit='2GB'")
         ay, am = self.err["starts"]["aqua"]; self.aqua_start = pd.Timestamp(ay, am, 1)
-        self.data_end = pd.Timestamp(self.db.execute(f"SELECT max(date) FROM '{self.fires}'").fetchone()[0])  # same time axis for every area
+        end, x0, y0, x1, y1 = self.db.execute(f"SELECT max(date), min(lon), min(lat), max(lon), max(lat) FROM '{self.fires}'").fetchone()
+        self.data_end = pd.Timestamp(end)          # same time axis for every area
+        self.bounds = (x0, y0, x1, y1)             # country data extent, used to reject drawn areas elsewhere
 
     def points(self, geom):
         """vegetation-fire points (low confidence removed) inside a shapely geometry."""

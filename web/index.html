@@ -185,7 +185,7 @@ async function run(body,label,year,month){
   const r=await fetch('/api/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(req)});
   if(my!==seq)return;
   res.classList.remove('loading');
-  if(!r.ok){document.getElementById('answer').textContent='Could not load this area.';return}
+  if(!r.ok){let m='Could not load this area.';try{m=(await r.json()).detail||m}catch(e){}document.getElementById('areaName').textContent=label;document.getElementById('answer').textContent=m;return}
   const j=await r.json();if(my!==seq)return;current=j;current.label=label;render();
 }
 const fmt=v=>v==null?'–':v>=100?Math.round(v).toLocaleString('en-IN'):v>=10?v.toFixed(0):v.toFixed(1);

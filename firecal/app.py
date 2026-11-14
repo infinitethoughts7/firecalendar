@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
-from shapely.geometry import shape
+from shapely.geometry import shape, box
 from firecal.engine import Engine
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
@@ -24,19 +24,39 @@ class Area(BaseModel):
     year: Optional[int] = None
     month: Optional[int] = None
 
+MAX_VERTS, MAX_AREA_DEG2 = 2000, 40.0          # drawn areas: bigger than any Indian state, far smaller than the country
+
+def check_drawn(geom: dict):
+    """reject drawn shapes that are invalid or big enough to exhaust memory on a public server."""
+    if not isinstance(geom, dict) or geom.get("type") not in ("Polygon", "MultiPolygon"):
+        raise HTTPException(400, "drawn area must be a GeoJSON Polygon or MultiPolygon")
+    try: g = shape(geom)
+    except Exception: raise HTTPException(400, "could not read the drawn area")
+    n = sum(len(r.coords) for p in getattr(g, "geoms", [g]) for r in [p.exterior, *p.interiors])
+    if n > MAX_VERTS: raise HTTPException(400, f"drawn area has too many points ({n} > {MAX_VERTS})")
+    if not g.is_valid or g.is_empty: raise HTTPException(400, "drawn area is not a valid polygon (does it cross itself?)")
+    if g.area > MAX_AREA_DEG2: raise HTTPException(400, "drawn area is too large; draw a smaller area or pick a state")
+    return g
+
 def resolve(a: Area):
+    if a.country not in ENG: raise HTTPException(400, f"country not available: {a.country}")
     if a.id:
         if a.id not in SHAPES: raise HTTPException(404, "unknown area id")
         g, p = SHAPES[a.id]; return g, f"{p['name']}" + (f", {p['state']}" if p["kind"] == "district" else "")
-    if a.geometry: return shape(a.geometry), "Drawn area"
+    if a.geometry:
+        g = check_drawn(a.geometry)
+        x0, y0, x1, y1 = ENG[a.country].bounds
+        if not g.intersects(box(x0, y0, x1, y1)): raise HTTPException(400, "drawn area is outside the country")
+        return g, "Drawn area"
     raise HTTPException(400, "give an id or a geometry")
 
 @functools.lru_cache(maxsize=64)
 def compute(country, key, wkb):
+    """cached per area: only small aggregates are kept (never the raw points)."""
     from shapely import from_wkb
     E = ENG[country]; g = from_wkb(wkb)
     m, pts = E.monthly(g)
-    return m, pts
+    return m, int(len(pts)), blind_spot(pts, E.calendar(m))
 
 def blind_spot(pts, cal):
     """Aqua (drifting later) vs S-NPP (fixed ~13:30) detections in this area's peak months, vs 2012-19 normal."""
@@ -67,7 +87,7 @@ def clean(o):
 @app.post("/api/query")
 def query(a: Area):
     g, name = resolve(a); E = ENG[a.country]
-    m, pts = compute(a.country, a.id or json.dumps(a.geometry, sort_keys=True), g.wkb)
+    m, n_points, blind = compute(a.country, a.id or json.dumps(a.geometry, sort_keys=True), g.wkb)
     cal = E.calendar(m)
     # default: the area's peak month in the latest full calendar year in the data
     end = m.index.max()
@@ -81,7 +101,7 @@ def query(a: Area):
                                                         modis=("modis", "sum"), viirs_eq=("viirs_eq", "sum"))
     clim = cal.loc[2003:2021]
     return JSONResponse(clean(dict(
-        name=name, country=a.country, n_points=int(len(pts)),
+        name=name, country=a.country, n_points=n_points,
         monthly=[dict(date=d.strftime("%Y-%m"), value=round(float(r.value), 1), lo=round(float(r.lo), 1), hi=round(float(r.hi), 1),
                       method=r.method, terra=int(r.terra), aqua=int(r.aqua), snpp=int(r.snpp), n20=int(r.n20),
                       modis=int(r.modis), viirs_eq=None if np.isnan(r.viirs_eq) else round(float(r.viirs_eq), 1))
@@ -89,7 +109,7 @@ def query(a: Area):
         calendar=dict(years=[int(y) for y in cal.index], values=[[None if np.isnan(v) else round(float(v), 1) for v in row] for row in cal.values]),
         climatology=dict(median=[None if np.isnan(v) else round(float(v), 1) for v in clim.median().values]),
         anomaly=an, yearly=[dict(year=int(y), **{k: round(float(v), 1) for k, v in r.items()}) for y, r in yearly.iterrows()],
-        blind_spot=blind_spot(pts, cal),
+        blind_spot=blind,
         sensors=dict(starts=E.err["starts"], snpp_end="2026-11-02", modis_stable_end=E.stable_end,
                      errors={k: {kk: E.err[k][kk] for kk in ["block_month_R2", "block_month_median_rel_err", "yearly_bias_rms"]} for k in ["terra", "snpp", "n20"]}),
     )))
@@ -97,7 +117,7 @@ def query(a: Area):
 @app.post("/api/csv")
 def csv(a: Area):
     g, name = resolve(a)
-    m, _ = compute(a.country, a.id or json.dumps(a.geometry, sort_keys=True), g.wkb)
+    m, _, _ = compute(a.country, a.id or json.dumps(a.geometry, sort_keys=True), g.wkb)
     out = m.reset_index().rename(columns={"index": "month"})
     out["month"] = out.month.dt.strftime("%Y-%m"); out.insert(0, "area", name)
     out = out.rename(columns={"value": "fires_modis_equivalent", "lo": "low_estimate", "hi": "high_estimate",
