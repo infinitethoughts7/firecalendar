@@ -11,3 +11,4 @@ data/test_touch
 .playwright-mcp/
 data/processed/fires_*.parquet
 data/raw_2026/
+pages/
