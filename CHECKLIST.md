@@ -68,7 +68,7 @@ Live: https://firecalendar-ten.vercel.app  ·  Evidence below = checks run on 15
 - [ ] F2. Project name — Draft in docs/SUBMISSION.md; Rocky to review and paste.
 - [ ] F3. High-level summary — Draft in docs/SUBMISSION.md; Rocky to review and paste.
 - [ ] F4. 30-second video with English subtitles — 5-shot script with subtitles in docs/SUBMISSION.md; recording pending.
-- [ ] F5. ≤7 slides — 7-slide outline in docs/SUBMISSION.md; deck pending.
+- [x] F5. ≤7 slides — 7 slides (title, team, members, challenge, app image, user experience, NASA FIRMS). PDF public without login: https://github.com/infinitethoughts7/firecalendar/blob/master/docs/FireCalendar_slides.pdf (checked in a logged-out browser, 15 Nov). The claude.ai deck link needs sign-in, so don't submit that one.
 - [x] F6. Final project link. — https://firecalendar-ten.vercel.app and https://github.com/infinitethoughts7/firecalendar, both 200 without login (curl).
 - [ ] F7. Detailed project description — Draft in docs/SUBMISSION.md; Rocky to review and paste.
 - [ ] F8. NASA data section — Draft in docs/SUBMISSION.md; Rocky to review and paste.
