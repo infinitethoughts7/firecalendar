@@ -65,15 +65,15 @@ Live: https://firecalendar-ten.vercel.app  ·  Evidence below = checks run on 15
 
 ## F. Submission (official form fields)
 - [ ] F1. Team page (Rocky)
-- [ ] F2. Project name
-- [ ] F3. High-level summary
-- [ ] F4. 30-second video with English subtitles
-- [ ] F5. ≤7 slides
-- [ ] F6. Final project link: live app + GitHub repo
-- [ ] F7. Detailed project description
-- [ ] F8. NASA data section
-- [ ] F9. Other data section
-- [ ] F10. Use of AI section
+- [ ] F2. Project name — Draft in docs/SUBMISSION.md; Rocky to review and paste.
+- [ ] F3. High-level summary — Draft in docs/SUBMISSION.md; Rocky to review and paste.
+- [ ] F4. 30-second video with English subtitles — 5-shot script with subtitles in docs/SUBMISSION.md; recording pending.
+- [ ] F5. ≤7 slides — 7-slide outline in docs/SUBMISSION.md; deck pending.
+- [x] F6. Final project link. — https://firecalendar-ten.vercel.app and https://github.com/infinitethoughts7/firecalendar, both 200 without login (curl).
+- [ ] F7. Detailed project description — Draft in docs/SUBMISSION.md; Rocky to review and paste.
+- [ ] F8. NASA data section — Draft in docs/SUBMISSION.md; Rocky to review and paste.
+- [ ] F9. Other data section — Draft in docs/SUBMISSION.md; Rocky to review and paste.
+- [ ] F10. Use of AI section — Draft in docs/SUBMISSION.md; Rocky to review and paste.
 - [ ] F11. All links tested in a private window
 - [ ] F12. Submitted (Rocky)
 
