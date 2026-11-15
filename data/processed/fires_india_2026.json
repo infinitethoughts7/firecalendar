@@ -1,0 +1,21 @@
+{
+ "rows_downloaded": 1903203,
+ "rows_in_country": 1217490,
+ "rows": 1217490,
+ "date_min": "2026-01-01",
+ "date_max": "2026-11-14",
+ "provisional_from": {
+  "modis": "2026-09-01",
+  "viirs-snpp": "2026-08-01",
+  "viirs-jpss1": "2026-08-01"
+ },
+ "nrt_static_mask": {
+  "sp_rows": 896622,
+  "sp_static_by_type": 104019,
+  "caught_by_mask": 99256,
+  "veg_wrongly_masked": 10614,
+  "recall": 0.954,
+  "veg_loss_share": 0.0134
+ },
+ "note": "NRT rows have no FIRMS type; static sources masked: 0.005 deg cells with >=10 type!=0 detections in 2000-2025."
+}
