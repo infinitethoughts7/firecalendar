@@ -132,6 +132,27 @@ def csv(a: Area):
     fn = "firecalendar_" + "".join(ch if ch.isalnum() else "_" for ch in name).strip("_").lower() + ".csv"
     return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={fn}"})
 
+class PointsReq(Area):
+    start: Optional[str] = None          # "YYYY-MM-DD", inclusive
+    end: Optional[str] = None
+
+MAX_POINTS = 1_000_000
+
+@app.post("/api/points")
+def points(a: PointsReq):
+    """raw hotspot detections (vegetation, low confidence removed) inside the area, optionally within [start, end]."""
+    g, name = resolve(a)
+    pts = ENG[a.country].points(g)
+    d = pd.to_datetime(pts.date)
+    if a.start: pts = pts[d >= pd.Timestamp(a.start)]; d = d[d >= pd.Timestamp(a.start)]
+    if a.end: pts = pts[d <= pd.Timestamp(a.end)]
+    if len(pts) > MAX_POINTS: raise HTTPException(413, f"{len(pts):,} points; narrow the area or dates (limit {MAX_POINTS:,})")
+    out = pts.sort_values(["date", "time_utc"]).rename(columns={"frp": "frp_mw"})
+    out.insert(0, "area", name)
+    buf = io.StringIO(); out.to_csv(buf, index=False)
+    fn = "firecalendar_points_" + "".join(ch if ch.isalnum() else "_" for ch in name).strip("_").lower() + ".csv"
+    return StreamingResponse(iter([buf.getvalue()]), media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={fn}"})
+
 @app.get("/api/boundaries/{kind}")
 def boundaries(kind: str):
     if kind not in ("state", "district"): raise HTTPException(404)
