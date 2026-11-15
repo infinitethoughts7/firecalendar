@@ -120,7 +120,7 @@ class Engine:
         else:
             label = ("much higher than usual" if pct >= 90 else "higher than usual" if pct >= 75 else
                      "much lower than usual" if pct <= 10 else "lower than usual" if pct <= 25 else "normal")
-        return dict(year=year, month=month, value=float(cur), median=med, ratio=float(ratio), percentile=pct,
+        return dict(year=year, month=month, value=float(cur), median=med, mean=float(base.mean()), ratio=float(ratio), percentile=pct,
                     label=label, n_years=int(len(base)), base_years=[int(base.index.min()), int(base.index.max())])
 
 

@@ -50,7 +50,7 @@
     if (isPartial(year, month)) label = 'month not finished yet';
     else if (med < 3 && cur < 3) label = 'too little fire to compare';
     else label = pct >= 90 ? 'much higher than usual' : pct >= 75 ? 'higher than usual' : pct <= 10 ? 'much lower than usual' : pct <= 25 ? 'lower than usual' : 'normal';
-    return { year, month, value: cur, median: med, ratio, percentile: pct, label, n_years: vals.length,
+    return { year, month, value: cur, median: med, mean: mean(vals), ratio, percentile: pct, label, n_years: vals.length,
       base_years: [Math.min(...base.map(b => b[0])), Math.max(...base.map(b => b[0]))] };
   }
 

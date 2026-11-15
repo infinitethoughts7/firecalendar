@@ -231,7 +231,7 @@ function render(){
   const ymSel=`${a.year}-${String(a.month).padStart(2,'0')}`,prov=d.provisional_from&&ymSel>=d.provisional_from.slice(0,7);
   if(a.label==='month not finished yet'){det=`Data so far run only to <b>${dLong(d.data_end)}</b>: about <b>${fmt(a.value)}</b> fires (MODIS-equivalent) up to then. A normal full ${MONTHS_LONG[a.month-1]} has <b>${fmt(a.median)}</b>, so wait for the month to end before comparing.`}
   else if(a.label==='too little fire to compare'){det=`Very few fires were detected here in ${MONTHS_LONG[a.month-1]} in any year, so there is nothing meaningful to compare.`}
-  else{det=`About <b>${fmt(a.value)}</b> fires (MODIS-equivalent${m.lo!=null&&m.hi!==m.lo?`, likely range ${fmt(m.lo)}–${fmt(m.hi)}`:''}) compared with a normal ${MONTHS_LONG[a.month-1]} of <b>${fmt(a.median)}</b>`+
+  else{det=`About <b>${fmt(a.value)}</b> fires (MODIS-equivalent${m.lo!=null&&m.hi!==m.lo?`, likely range ${fmt(m.lo)}–${fmt(m.hi)}`:''}) compared with a normal ${MONTHS_LONG[a.month-1]} of <b>${fmt(a.median)}</b> (median; average <b>${fmt(a.mean)}</b>)`+
    (a.ratio!=null?` (<b>${a.ratio>=1?a.ratio.toFixed(1)+'×':Math.round(a.ratio*100)+'%'}</b> of normal)`:'')+
    `. Higher than ${Math.round(a.percentile)}% of ${MONTHS_LONG[a.month-1]}s from ${a.base_years[0]} to ${a.base_years[1]}.`}
   if(d.blind_spot&&d.blind_spot.flag&&a.ratio!=null&&a.ratio<1)det+=` <b style="color:#92400e">But see the warning below: part of this drop may be fires burning when satellites are not looking.</b>`;
