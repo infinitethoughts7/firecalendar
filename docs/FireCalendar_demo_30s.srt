@@ -1,0 +1,53 @@
+1
+00:00:00,130 --> 00:00:01,890
+We're Team Guardians of Galaxy,
+
+2
+00:00:01,940 --> 00:00:04,920
+taking on NASA's MODIS and VIIRS hot-spot challenge.
+
+3
+00:00:05,070 --> 00:00:10,690
+FireCalendar turns 25 years of NASA satellite fire data
+into one comparable burning calendar,
+
+4
+00:00:10,730 --> 00:00:12,550
+tested on years it never saw.
+
+5
+00:00:12,700 --> 00:00:14,570
+Pick any district for a plain answer,
+
+6
+00:00:14,610 --> 00:00:15,570
+with uncertainty.
+
+7
+00:00:15,720 --> 00:00:18,740
+Punjab's satellite fire counts fell 95%.
+
+8
+00:00:18,890 --> 00:00:21,800
+Yet NASA's later afternoon pass sees more fire,
+
+9
+00:00:21,850 --> 00:00:23,300
+so we flag the blind spot.
+
+10
+00:00:23,450 --> 00:00:24,450
+Ask it anything,
+
+11
+00:00:24,500 --> 00:00:26,310
+in English, Hindi or Telugu.
+
+12
+00:00:26,460 --> 00:00:27,720
+Free and open today.
+
+13
+00:00:27,870 --> 00:00:29,230
+Early warnings next.
+
