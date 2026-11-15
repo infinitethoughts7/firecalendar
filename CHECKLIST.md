@@ -6,19 +6,19 @@ Live: https://firecalendar-ten.vercel.app  ·  Evidence below = checks run on 15
 - [x] A1. Harmonize MODIS + VIIRS → one series. — One MODIS-equivalent series Dec 2000 → 14 Nov 2026 (terra-adjusted / modis-measured / viirs-translated); validation in errors_india.json; live JSON == raw parquet (B10).
 - [x] A2. Web application that takes the harmonized data as input. — Live site reads precomputed harmonized JSON (web/data); static == API 180/180 cases (test/compare_static.js, after 2026 re-export).
 - [x] A3. Draw area of interest on map. — Live: 1°×1° box near Sangrur → "approx., 4 cells", answer + CSV (303 rows).
-- [ ] A4. Enter latitude/longitude (point + radius or bbox)  ← not built yet
+- [x] A4. Enter latitude/longitude. — Search box accepts `lat, lon [, radius km]` (default 25 km, 5–150) → circle analysed like a drawn area; outside India → "That point is outside India." (local test, commit 78213f1).
 - [x] A5. States/districts. — 36 states + 641 districts (677 JSON files); search "Sangrur, Punjab", "Odisha" etc. work on live site.
-- [ ] A6. DATE RANGE (start–end) and results/downloads respect it  ← not built yet
+- [x] A6. Date range. — From/To month pickers in the download card: zoom the time series, show a range total (Sangrur 2020-01→2026-11: "83 months · 7,494 fires, range 6,823–8,165") and filter every download.
 - [x] A7. Burning activity CALENDAR (years × months). — Heatmap 2000–2026 on live site (log colour scale).
 - [x] A8. Which months have more fires. — Calendar + 2003–21 monthly normal + fire-season clock (e.g. Punjab Oct–Nov 82% / Apr–May 16%).
 - [x] A9. Which years had more burning. — Yearly bars with error bars; 2026 tooltip marked "year not finished".
 - [x] A10. Current month vs historical MEDIAN. — Answer card: value vs median, % of normal, percentile (static == API).
-- [ ] A11. Anomalies vs multi-year AVERAGE (show mean as well)  ← add mean
+- [x] A11. Anomalies vs multi-year average. — Answer shows "(median; average X)"; `mean` in API + static anomaly, parity test 30/30.
 - [x] A12. Number of fires per period. — Monthly + yearly MODIS-eq counts, raw counts per satellite in CSV and tooltip.
-- [ ] A13. Accessible colour ramps (colour-blind safe; not colour-only meaning). — Text labels always shown (not colour-only ✔); calendar = single-hue luminance ramp ✔; but answer labels use red vs green → fix to CVD-safe.
-- [ ] A14. Download CSV of hotspots (raw points for area + date range)  ← only monthly CSV now
-- [ ] A15. Download analytics (harmonized monthly/yearly CSV). — Monthly CSV works (303 rows, live); yearly not downloadable yet.
-- [ ] A16. Download visualizations (PNG export)  ← not built yet
+- [x] A13. Accessible colours. — Text labels always shown (not colour-only); calendar = single-hue luminance ramp; answer labels now red/orange ↔ blue + slate (no red/green pair; commit 087fe80).
+- [x] A14. Hotspot CSV. — Site: "Hotspots per grid cell" CSV (0.5° cells × month, raw counts per satellite + MODIS-eq; Sangrur 2020–26: 74 rows). Raw points (lat, lon, date, time, satellite, FRP): `POST /api/points` on the open API (Sangrur 1–14 Nov 2026: 843 points). Raw points not in the static site (1.2 GB).
+- [x] A15. Analytics CSV. — Monthly (value, lo, hi, method, raw per satellite) + yearly (n_months, value, lo, hi, methods); both respect the date range (Sangrur 2020–26: 84 / 8 lines).
+- [x] A16. PNG export. — "Charts (PNG)" stitches every visible chart with headings, area, answer and source line into one image (Sangrur: 450 KB, checked visually).
 - [x] A17. Interactive map. — Leaflet: states/districts toggle, hover, click, draw, zoom (live).
 - [x] A18. Plain-language answer + details. — e.g. "October 2026: much lower than usual … 4% of normal … but see the warning below" (live).
 
@@ -29,7 +29,7 @@ Live: https://firecalendar-ten.vercel.app  ·  Evidence below = checks run on 15
 - [x] B4. MODIS only for stable years; drift handled. — modis_stable_end=2021; 2022→ "viirs-translated" (Punjab 2024-11 method v).
 - [x] B5. Factors per 0.5° cell × month, trained ≤2021, correct starts. — errors_india.json cell_deg 0.5, starts snpp 2012-02, n20 2018-05; S-NPP stops 2 Nov 2026 (engine SNPP_END).
 - [ ] B6. Validation numbers in app + README. — In app ✔ (Methods table: 0.978 / 0.985 / 0.801); README missing.
-- [ ] B7. Comparison vs naive single multiplier shown (error halved). — App says "one multiplier is wrong" but no number shown.
+- [x] B7. vs single multiplier. — Methods text: per-cell × month halves the error (S-NPP MAE per 2° block-month 12.8 vs 25.7, leave-one-year-out, scripts/harmonize.py).
 - [x] B8. Uncertainty band + method labelled per month incl. NRT. — Band on time series, lo/hi in CSV, "how this month was measured" tile, "Provisional" note + grey band from Aug 2026.
 - [x] B9. Blind-spot per area, "consistent with", sources. — Alert text names ISRO and iFOREST ("fits … as ISRO and iFOREST studies have reported"); computed per area; 2026 S-NPP-end artefact fixed.
 - [x] B10. Spot-check vs raw parquet. — Independent DuckDB+shapely counts == live JSON for Sangrur 2015-11, Khammam 2010-03, Odisha 2019-03, Punjab 2024-11 (4/4 exact, per satellite).
