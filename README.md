@@ -21,6 +21,8 @@ month it answers: *how much fire, compared with normal, and how sure are we?*
   date, time, satellite, confidence, FRP), and one PNG of all charts.
 - **2026 data** via the FIRMS API; near-real-time months are labelled *provisional*; unfinished months are never
   compared with history.
+- **Ask FireCalendar:** ask in plain words (English, Hindi, Telugu, …). Claude answers using only FireCalendar's
+  own numbers, via four lookup tools over the site data, and shows which data it looked up (`web/api/ask.js`).
 - Works on phones; colour-blind-safe labels (meaning never carried by colour alone).
 
 ## Why harmonization is needed
@@ -106,6 +108,8 @@ front end · `scripts/` download, build, validation comparison · `test/compare_
 ## Use of AI
 Built with **Claude (Anthropic)** via Claude Code: code, data processing and documentation were written with Claude's
 help and reviewed by the author. All numbers come from the pipeline above, not from the AI. No AI-generated images.
+In the app, **Ask FireCalendar** answers are generated live by Claude (Opus 5.5) from FireCalendar's computed numbers
+only; each answer is labelled as Claude's and lists the data it used. Claude can make mistakes.
 
 ## License
 MIT — see [LICENSE](LICENSE).
