@@ -1,6 +1,8 @@
 # FireCalendar — is the burning in your area normal?
 
 **Live app:** https://firecalendar-ten.vercel.app (no login)
+
+**Demo video (30 s):** [docs/FireCalendar_demo_30s.mp4](docs/FireCalendar_demo_30s.mp4) · **Slides:** [docs/FireCalendar_slides.pdf](docs/FireCalendar_slides.pdf)
 NASA Space Apps Challenge 2026 · *Harmonization of MODIS and VIIRS Hot Spots*
 
 FireCalendar turns 25 years of NASA satellite fire detections (MODIS 2000→, VIIRS 2012→) into **one consistent
