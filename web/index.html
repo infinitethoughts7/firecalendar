@@ -192,17 +192,20 @@ map.addControl(new L.Control.Draw({draw:{polyline:false,circle:false,circlemarke
 map.on(L.Draw.Event.CREATED,e=>{drawn.clearLayers();drawn.addLayer(e.layer);if(selected)selected.setStyle(baseStyle);selected=null;run({geometry:e.layer.toGeoJSON().geometry},'Your drawn area')});
 const baseStyle={color:'#1e3a5f',weight:.6,fillColor:'#1e3a5f',fillOpacity:.04};
 const hiStyle={color:'#dc2626',weight:2.2,fillColor:'#f59e0b',fillOpacity:.18};
-async function loadLayer(kind){
-  if(layers[kind])return layers[kind];
-  const gj=await (await fetch(`data/${COUNTRY}/boundaries_${kind}.geojson`)).json();
-  layers[kind]=L.geoJSON(gj,{style:baseStyle,onEachFeature:(f,l)=>{
-    l.bindTooltip(f.properties.name+(f.properties.kind==='district'?', '+f.properties.state:''),{sticky:true});
-    l.on('click',()=>selectLayer(l))}});
-  return layers[kind];
+const layerLoads={};  // one fetch per kind; callers await the same promise (no race when search runs mid-load)
+function loadLayer(kind){
+  return layerLoads[kind]||(layerLoads[kind]=(async()=>{
+    const gj=await (await fetch(`data/${COUNTRY}/boundaries_${kind}.geojson`)).json();
+    layers[kind]=L.geoJSON(gj,{style:baseStyle,onEachFeature:(f,l)=>{
+      l.bindTooltip(f.properties.name+(f.properties.kind==='district'?', '+f.properties.state:''),{sticky:true});
+      l.on('click',()=>selectLayer(l))}});
+    return layers[kind];
+  })().catch(e=>{delete layerLoads[kind];throw e}));
 }
 async function setLayer(kind){
   active=kind;document.getElementById('bState').classList.toggle('on',kind==='state');document.getElementById('bDist').classList.toggle('on',kind==='district');
-  for(const k in layers)map.removeLayer(layers[k]);(await loadLayer(kind)).addTo(map);
+  const lyr=await loadLayer(kind);if(active!==kind)return;  // a later click won
+  for(const k in layers)map.removeLayer(layers[k]);lyr.addTo(map);
 }
 function selectLayer(l){
   if(selected)selected.setStyle(baseStyle);selected=l;l.setStyle(hiStyle);drawn.clearLayers();
@@ -230,8 +233,8 @@ async function pick(text){
   const q=text.trim().toLowerCase(),name=q.split(',')[0].trim();   // full "district, state" first: names like Aurangabad repeat across states
   const a=AREAS.find(x=>areaLabel(x).toLowerCase()===q)||AREAS.find(x=>x.name.toLowerCase()===name)||AREAS.find(x=>x.name.toLowerCase().startsWith(name));
   if(!a)return;
-  if(a.kind!==active)await setLayer(a.kind);
-  layers[a.kind].eachLayer(l=>{if(l.feature.properties.id===a.id)selectLayer(l)});
+  await setLayer(a.kind);  // waits for the layer even if a Districts click is still loading it
+  (await loadLayer(a.kind)).eachLayer(l=>{if(l.feature.properties.id===a.id)selectLayer(l)});
 }
 document.getElementById('search').addEventListener('change',e=>pick(e.target.value));
 fetch(`data/${COUNTRY}/areas.json`).then(r=>r.json()).then(a=>{AREAS=a;document.getElementById('arealist').innerHTML=a.map(x=>`<option value="${areaLabel(x)}">`).join('')});
