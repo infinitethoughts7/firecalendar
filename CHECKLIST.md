@@ -64,7 +64,7 @@ Live: https://firecalendar-ten.vercel.app  ·  Evidence below = checks run on 15
 - [x] E5. README. — Screenshot, features, method, validation, afternoon-witness finding ("consistent with"), limits, run locally, open API, credits (FIRMS, datameet, OSM, libs), AI use, MIT LICENSE.
 
 ## F. Submission (official form fields)
-- [ ] F1. Team page (Rocky)
+- [x] F1. Team page — https://www.spaceappschallenge.org/2026/find-a-team/swinfy-space/ (team Swinfy Space, challenge attached).
 - [x] F2. Project name — Final in docs/SUBMISSION.md §1 (ready to paste).
 - [x] F3. High-level summary — Final in docs/SUBMISSION.md §2 (no placeholders; numbers from FINDINGS.md).
 - [x] F4. 30-second video with English subtitles — 29.6 s, live screen recording, burned-in subtitles + VTT track, AI voice labelled. Plays without login: https://infinitethoughts7.github.io/firecalendar/demo.html (verified in a fresh browser: plays, 1920×1080).
@@ -75,7 +75,7 @@ Live: https://firecalendar-ten.vercel.app  ·  Evidence below = checks run on 15
 - [x] F9. Other data / references — Final in docs/SUBMISSION.md §7 (adds Claude API, ElevenLabs, globe source).
 - [x] F10. Use of Super Intelligence (SI) — Final in docs/SUBMISSION.md §8 (Claude Code, Ask FireCalendar, ElevenLabs voice; planning line removed).
 - [x] F11. All links tested in a fresh logged-out browser (15 Nov): app 200, repo 200, slides PDF 200 + renders, demo page 200 + video plays; no sign-in walls.
-- [ ] F12. Submitted (Rocky)
+- [x] F12. Submitted for judging 15 Nov 2026 19:26 IST (status "Project Submitted for Judging"; all 4 form sections Complete; 6 NASA + 15 other data links; reloaded page shows full text). Can be edited and resubmitted until 11:59 pm.
 
 ## G. After the hackathon
 - [ ] G1. Remind Rocky to revisit and learn VIIRS ti4/ti5 brightness temperatures + infrared physics
