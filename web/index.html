@@ -70,7 +70,7 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
   <div class="tag">Is the burning in your area normal? 25 years of NASA satellite fire data, made comparable.<span id="thru"></span></div>
   <div class="sp"></div>
   <a href="#methods" onclick="document.getElementById('methods').open=true">How it works</a>
-  <a href="" id="repoLink" target="_blank" style="display:none">Code &amp; data</a>
+  <a href="https://github.com/infinitethoughts7/firecalendar" id="repoLink" target="_blank" rel="noopener">Code &amp; data</a>
 </header>
 <main>
   <section id="mapwrap">
@@ -147,7 +147,7 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
           <button class="btn" onclick="download('yearly')">⬇ Yearly CSV</button>
           <button class="btn" onclick="download('cells')">⬇ Hotspots per grid cell (CSV)</button>
           <button class="btn" onclick="downloadPng()">⬇ Charts (PNG)</button>
-          <a class="btn" href="" id="repoBtn" target="_blank" style="display:none">Code, data &amp; API on GitHub</a>
+          <a class="btn" href="https://github.com/infinitethoughts7/firecalendar" id="repoBtn" target="_blank" rel="noopener">Code, data &amp; API on GitHub</a>
         </div>
         <div class="muted" style="margin-top:8px">All downloads use the date range above, which also zooms the monthly chart. <b>Monthly CSV</b>: harmonized value, low/high estimate, method, raw counts per satellite. <b>Yearly CSV</b>: the same summed by year (n_months shows partial years). <b>Hotspots per grid cell</b>: raw detections per satellite in each ~55 km cell covering the area, per month. Individual hotspot points (lat/lon/time/FRP) come from the open API when run locally (<code>/api/points</code>, see GitHub), or from NASA FIRMS.</div>
       </div>
