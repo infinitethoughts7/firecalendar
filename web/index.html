@@ -224,7 +224,7 @@ function render(){
   sy.innerHTML=d.calendar.years.map(y=>`<option ${y===a.year?'selected':''}>${y}</option>`).join('');
   sm.innerHTML=MONTHS_LONG.map((m,i)=>`<option value="${i+1}" ${i+1===a.month?'selected':''}>${m}</option>`).join('');
   sy.onchange=sm.onchange=()=>run(stripYM(req),d.label,+sy.value,+sm.value);
-  const colors={'much higher than usual':'#b91c1c','higher than usual':'#c2410c','normal':'#047857','lower than usual':'#1d4ed8','much lower than usual':'#1e3a8a','too little fire to compare':'#5b6475','month not finished yet':'#5b6475'};
+  const colors={'much higher than usual':'#b91c1c','higher than usual':'#c2410c','normal':'#475569','lower than usual':'#1d4ed8','much lower than usual':'#1e3a8a','too little fire to compare':'#5b6475','month not finished yet':'#5b6475'};
   const m=d.monthly.find(x=>x.date===`${a.year}-${String(a.month).padStart(2,'0')}`)||{};
   document.getElementById('answer').innerHTML=`${MONTHS_LONG[a.month-1]} ${a.year}: <span style="color:${colors[a.label]}">${a.label}</span>`;
   let det;
