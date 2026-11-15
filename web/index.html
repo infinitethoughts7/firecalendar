@@ -31,6 +31,7 @@ main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(380px,44%) 1f
 .answer{font-size:22px;font-weight:600;line-height:1.3;margin:4px 0 8px}
 .pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.prov{display:block;margin-top:6px;font-size:12.5px;color:#475569;font-style:italic}
 #stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:stretch}
 .stat{background:var(--bg);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;justify-content:flex-start}
 .stat b{display:block;font-size:20px;line-height:1.25;margin-bottom:2px}
@@ -64,7 +65,7 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
 <body>
 <header>
   <h1>🔥 FireCalendar</h1>
-  <div class="tag">Is the burning in your area normal? 25 years of NASA satellite fire data, made comparable.</div>
+  <div class="tag">Is the burning in your area normal? 25 years of NASA satellite fire data, made comparable.<span id="thru"></span></div>
   <div class="sp"></div>
   <a href="#methods" onclick="document.getElementById('methods').open=true">How it works</a>
   <a href="" id="repoLink" target="_blank" style="display:none">Code &amp; data</a>
@@ -160,6 +161,8 @@ const MONTHS_LONG=['January','February','March','April','May','June','July','Aug
 const map=L.map('map',{zoomSnap:.5}).setView([22.5,80],4.5);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',maxZoom:12}).addTo(map);
 const COUNTRY='india';let META=null,AREA_CACHE=new Map(),GRID=null;
+const dLong=s=>new Date(s+'T00:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
+fetch('data/meta.json').then(r=>r.json()).then(m=>{META=META||m;document.getElementById('thru').textContent=` Data through ${dLong(m.data_end)}.`});
 const getJSON=async u=>{const r=await fetch(u);if(!r.ok)throw new Error(u+' '+r.status);return r.json()};
 let layers={},active='state',selected=null,current=null,AREAS=[],charts={};
 const drawn=new L.FeatureGroup().addTo(map);
@@ -221,15 +224,18 @@ function render(){
   sy.innerHTML=d.calendar.years.map(y=>`<option ${y===a.year?'selected':''}>${y}</option>`).join('');
   sm.innerHTML=MONTHS_LONG.map((m,i)=>`<option value="${i+1}" ${i+1===a.month?'selected':''}>${m}</option>`).join('');
   sy.onchange=sm.onchange=()=>run(stripYM(req),d.label,+sy.value,+sm.value);
-  const colors={'much higher than usual':'#b91c1c','higher than usual':'#c2410c','normal':'#047857','lower than usual':'#1d4ed8','much lower than usual':'#1e3a8a','too little fire to compare':'#5b6475'};
+  const colors={'much higher than usual':'#b91c1c','higher than usual':'#c2410c','normal':'#047857','lower than usual':'#1d4ed8','much lower than usual':'#1e3a8a','too little fire to compare':'#5b6475','month not finished yet':'#5b6475'};
   const m=d.monthly.find(x=>x.date===`${a.year}-${String(a.month).padStart(2,'0')}`)||{};
   document.getElementById('answer').innerHTML=`${MONTHS_LONG[a.month-1]} ${a.year}: <span style="color:${colors[a.label]}">${a.label}</span>`;
   let det;
-  if(a.label==='too little fire to compare'){det=`Very few fires were detected here in ${MONTHS_LONG[a.month-1]} in any year, so there is nothing meaningful to compare.`}
+  const ymSel=`${a.year}-${String(a.month).padStart(2,'0')}`,prov=d.provisional_from&&ymSel>=d.provisional_from.slice(0,7);
+  if(a.label==='month not finished yet'){det=`Data so far run only to <b>${dLong(d.data_end)}</b>: about <b>${fmt(a.value)}</b> fires (MODIS-equivalent) up to then. A normal full ${MONTHS_LONG[a.month-1]} has <b>${fmt(a.median)}</b>, so wait for the month to end before comparing.`}
+  else if(a.label==='too little fire to compare'){det=`Very few fires were detected here in ${MONTHS_LONG[a.month-1]} in any year, so there is nothing meaningful to compare.`}
   else{det=`About <b>${fmt(a.value)}</b> fires (MODIS-equivalent${m.lo!=null&&m.hi!==m.lo?`, likely range ${fmt(m.lo)}–${fmt(m.hi)}`:''}) compared with a normal ${MONTHS_LONG[a.month-1]} of <b>${fmt(a.median)}</b>`+
    (a.ratio!=null?` (<b>${a.ratio>=1?a.ratio.toFixed(1)+'×':Math.round(a.ratio*100)+'%'}</b> of normal)`:'')+
    `. Higher than ${Math.round(a.percentile)}% of ${MONTHS_LONG[a.month-1]}s from ${a.base_years[0]} to ${a.base_years[1]}.`}
   if(d.blind_spot&&d.blind_spot.flag&&a.ratio!=null&&a.ratio<1)det+=` <b style="color:#92400e">But see the warning below: part of this drop may be fires burning when satellites are not looking.</b>`;
+  if(prov)det+=` <span class="prov">Provisional: near-real-time satellite data (NASA FIRMS NRT); numbers can change slightly when final processing is released.</span>`;
   document.getElementById('answerDetail').innerHTML=det;
   const methodTxt={'modis-measured':'Measured by MODIS (Terra + Aqua)','viirs-translated':'Translated from VIIRS (MODIS orbit drift period)','terra-adjusted':'Estimated from Terra alone (before Aqua)'};
   document.getElementById('stats').innerHTML=[
@@ -308,13 +314,15 @@ function renderTs(d){
     dataZoom:[{type:'slider',height:18,bottom:8,start:55,end:100},{type:'inside'}],xAxis:{type:'category',data:x},yAxis:{type:'value'},
     series:[{name:'lo',type:'line',data:d.monthly.map(r=>r.lo),stack:'band',lineStyle:{opacity:0},symbol:'none',tooltip:{show:false}},
       {name:'band',type:'line',data:d.monthly.map(r=>Math.max(0,r.hi-r.lo)),stack:'band',lineStyle:{opacity:0},areaStyle:{color:'rgba(245,158,11,.25)'},symbol:'none',tooltip:{show:false}},
-      {name:'FireCalendar (harmonized)',type:'line',data:d.monthly.map(r=>r.value),symbol:'none',lineStyle:{width:2,color:'#dc2626'},itemStyle:{color:'#dc2626'}},
+      {name:'FireCalendar (harmonized)',type:'line',data:d.monthly.map(r=>r.value),symbol:'none',lineStyle:{width:2,color:'#dc2626'},itemStyle:{color:'#dc2626'},
+        markArea:d.provisional_from?{silent:true,itemStyle:{color:'rgba(100,116,139,.15)'},label:{position:'insideTop',fontSize:10,color:'#475569'},
+          data:[[{name:'provisional',xAxis:d.provisional_from.slice(0,7)},{xAxis:x[x.length-1]}]]}:undefined},
       {name:'MODIS measured',type:'line',data:d.monthly.map(r=>r.modis),symbol:'none',lineStyle:{width:1,type:'dotted',color:'#1e3a5f'},itemStyle:{color:'#1e3a5f'}},
       {name:'VIIRS translated',type:'line',data:d.monthly.map(r=>r.viirs_eq),symbol:'none',lineStyle:{width:1,type:'dotted',color:'#7c3aed'},itemStyle:{color:'#7c3aed'}}]},true);
 }
 function renderYr(d){
   const ys=d.yearly.filter(y=>y.year>=2001);
-  chart('chYr').setOption({grid:{left:4,right:12,top:16,bottom:4,containLabel:true},tooltip:{trigger:'axis',formatter:p=>{const y=ys[p[0].dataIndex];return `${y.year}: <b>${fmt(y.value)}</b> fires<br>range ${fmt(y.lo)}–${fmt(y.hi)}`}},
+  chart('chYr').setOption({grid:{left:4,right:12,top:16,bottom:4,containLabel:true},tooltip:{trigger:'axis',formatter:p=>{const y=ys[p[0].dataIndex];return `${y.year}: <b>${fmt(y.value)}</b> fires<br>range ${fmt(y.lo)}–${fmt(y.hi)}`+(y.year===+d.data_end.slice(0,4)&&d.partial?`<br><i>to ${dLong(d.data_end)} only (year not finished)</i>`:'')}},
     xAxis:{type:'category',data:ys.map(y=>y.year)},yAxis:{type:'value'},
     series:[{type:'bar',data:ys.map(y=>({value:y.value,itemStyle:{color:y.year<2003?'#fbbf24':y.year>d.sensors.modis_stable_end?'#a78bfa':'#f59e0b'}}))},
       {type:'custom',renderItem:(p,api)=>{const x=api.coord([api.value(0),api.value(1)]),h=api.coord([api.value(0),api.value(2)]);return{type:'line',shape:{x1:x[0],y1:x[1],x2:h[0],y2:h[1]},style:{stroke:'#333',lineWidth:1}}},data:ys.map((y,i)=>[i,y.lo,y.hi]),tooltip:{show:false}}]},true);

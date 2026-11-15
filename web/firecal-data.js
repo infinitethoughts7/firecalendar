@@ -36,16 +36,19 @@
   }
 
   // same rules as Engine.anomaly
-  function anomaly(cal, year, month, firstFull = 2003) {
+  // partial = [year, month] of an unfinished last month: never used as history, flagged when it is the target
+  function anomaly(cal, year, month, firstFull = 2003, partial = null) {
     const yi = cal.years.indexOf(year), cur = cal.values[yi][month - 1];
-    let base = cal.years.map((y, i) => [y, cal.values[i][month - 1]]).filter(([y, v]) => y >= firstFull && y !== year && v != null);
+    const isPartial = (y, m) => partial && y === partial[0] && m === partial[1];
+    let base = cal.years.map((y, i) => [y, cal.values[i][month - 1]]).filter(([y, v]) => y >= firstFull && y !== year && v != null && !isPartial(y, month));
     const earlier = base.filter(([y]) => y < year);
     if (earlier.length >= 8) base = earlier;
     const vals = base.map(([, v]) => v), med = median(vals);
     const pct = (vals.filter(v => v < cur).length / vals.length + 0.5 * vals.filter(v => v === cur).length / vals.length) * 100;
     const ratio = med > 0 ? cur / med : null;
     let label;
-    if (med < 3 && cur < 3) label = 'too little fire to compare';
+    if (isPartial(year, month)) label = 'month not finished yet';
+    else if (med < 3 && cur < 3) label = 'too little fire to compare';
     else label = pct >= 90 ? 'much higher than usual' : pct >= 75 ? 'higher than usual' : pct <= 10 ? 'much lower than usual' : pct <= 25 ? 'lower than usual' : 'normal';
     return { year, month, value: cur, median: med, ratio, percentile: pct, label, n_years: vals.length,
       base_years: [Math.min(...base.map(b => b[0])), Math.max(...base.map(b => b[0]))] };
@@ -92,8 +95,9 @@
     return {
       name: A.label || A.name, country: A.country, n_points: A.n_points, approx: !!A.approx,
       monthly: rows.map(({ y, m, ...r }) => r), calendar: cal, climatology: { median: climatology(cal) },
-      anomaly: anomaly(cal, y, m), yearly: yearly(rows), blind_spot: A.blind_spot, season: A.season,
+      anomaly: anomaly(cal, y, m, 2003, meta.partial), yearly: yearly(rows), blind_spot: A.blind_spot, season: A.season,
       outlook: outlookFrom(A.outlook_table, todayIST()), sensors: meta.sensors, data_end: meta.data_end,
+      provisional_from: meta.provisional_from, partial: meta.partial,
     };
   }
 
@@ -132,9 +136,10 @@
     }
     const st = meta.sensors.starts, mi = (y, m) => (y - y0) * 12 + (m - m0);
     const iA = mi(...st.aqua), iS = mi(...st.snpp), iN = mi(...st.n20), iStable = mi(meta.sensors.modis_stable_end, 12);
+    const [sy, sm] = meta.sensors.snpp_end.split('-').map(Number), iSend = mi(sy, sm);   // S-NPP ended 2 Nov 2026: from that month use NOAA-20 only (approx.)
     const M = { start: G.month0, value: [], method: '', terra: [], aqua: [], snpp: [], n20: [], viirs_eq: [] };
     for (let t = 0; t < N; t++) {
-      const hs = t >= iS, hn = t >= iN;
+      const hs = t >= iS && t < iSend, hn = t >= iN;
       const v = hs && hn ? (S.snpp_eq[t] + S.n20_eq[t]) / 2 : hs ? S.snpp_eq[t] : S.n20_eq[t];
       const code = t < iA ? 't' : t <= iStable ? 'm' : 'v';
       M.value.push(r1(code === 't' ? S.terra_eq[t] : code === 'm' ? S.terra[t] + S.aqua[t] : v)); M.method += code;
