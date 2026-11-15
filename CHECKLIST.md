@@ -65,16 +65,16 @@ Live: https://firecalendar-ten.vercel.app  ·  Evidence below = checks run on 15
 
 ## F. Submission (official form fields)
 - [ ] F1. Team page (Rocky)
-- [ ] F2. Project name — Draft in docs/SUBMISSION.md; Rocky to review and paste.
-- [ ] F3. High-level summary — Draft in docs/SUBMISSION.md; Rocky to review and paste.
-- [ ] F4. 30-second video with English subtitles — 5-shot script with subtitles in docs/SUBMISSION.md; recording pending.
+- [x] F2. Project name — Final in docs/SUBMISSION.md §1 (ready to paste).
+- [x] F3. High-level summary — Final in docs/SUBMISSION.md §2 (no placeholders; numbers from FINDINGS.md).
+- [x] F4. 30-second video with English subtitles — 29.6 s, live screen recording, burned-in subtitles + VTT track, AI voice labelled. Plays without login: https://infinitethoughts7.github.io/firecalendar/demo.html (verified in a fresh browser: plays, 1920×1080).
 - [x] F5. ≤7 slides — 7 slides (title, team, members, challenge, app image, user experience, NASA FIRMS). PDF public without login: https://github.com/infinitethoughts7/firecalendar/blob/master/docs/FireCalendar_slides.pdf (checked in a logged-out browser, 15 Nov). The claude.ai deck link needs sign-in, so don't submit that one.
 - [x] F6. Final project link. — https://firecalendar-ten.vercel.app and https://github.com/infinitethoughts7/firecalendar, both 200 without login (curl).
-- [ ] F7. Detailed project description — Draft in docs/SUBMISSION.md; Rocky to review and paste.
-- [ ] F8. NASA data section — Draft in docs/SUBMISSION.md; Rocky to review and paste.
-- [ ] F9. Other data section — Draft in docs/SUBMISSION.md; Rocky to review and paste.
-- [ ] F10. Use of AI section — Draft in docs/SUBMISSION.md; Rocky to review and paste.
-- [ ] F11. All links tested in a private window
+- [x] F7. Detailed project description — Final in docs/SUBMISSION.md §5 (all ⟪IF BUILT⟫ features verified live; Ask added; 180/180 parity; OSM not CARTO).
+- [x] F8. NASA data section — Final in docs/SUBMISSION.md §6.
+- [x] F9. Other data / references — Final in docs/SUBMISSION.md §7 (adds Claude API, ElevenLabs, globe source).
+- [x] F10. Use of Super Intelligence (SI) — Final in docs/SUBMISSION.md §8 (Claude Code, Ask FireCalendar, ElevenLabs voice; planning line removed).
+- [x] F11. All links tested in a fresh logged-out browser (15 Nov): app 200, repo 200, slides PDF 200 + renders, demo page 200 + video plays; no sign-in walls.
 - [ ] F12. Submitted (Rocky)
 
 ## G. After the hackathon
