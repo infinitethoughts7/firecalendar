@@ -91,4 +91,4 @@ Yes. We used Claude (Anthropic) as an assistant during the hackathon:
 - No AI-generated images or video footage are used. The globe is rendered from real NASA VIIRS detections; app shots are a live screen recording. The repository README also records this.
 
 ## 9. Team
-Team name: Guardians of Galaxy · Members: Nagesh V, Rakesh G, Praveen G · Challenge: Harmonization of MODIS and VIIRS Hot Spots
+Team name: Swinfy Space · Members: Nagesh V, Rakesh G, Praveen G · Challenge: Harmonization of MODIS and VIIRS Hot Spots
