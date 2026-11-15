@@ -17,7 +17,8 @@ month it answers: *how much fire, compared with normal, and how sure are we?*
 - **Blind-spot alert:** flags areas where satellites may now be missing fires (see below).
 - **Fire-season clock + 4-week outlook** (from history; not a forecast).
 - **Area of interest:** 36 states, 641 districts, search, draw a polygon/box, or type `lat, lon[, radius km]`.
-- **Downloads** for a chosen date range: monthly CSV, yearly CSV, per-grid-cell CSV, one PNG of all charts.
+- **Downloads** for a chosen date range: monthly CSV, yearly CSV, per-grid-cell CSV, **raw hotspot points** (lat, lon,
+  date, time, satellite, confidence, FRP), and one PNG of all charts.
 - **2026 data** via the FIRMS API; near-real-time months are labelled *provisional*; unfinished months are never
   compared with history.
 - Works on phones; colour-blind-safe labels (meaning never carried by colour alone).
@@ -60,6 +61,13 @@ detections per VIIRS S-NPP detection, against the 2012–19 normal, stayed ≈1.
 burning to late afternoon, after the main satellite passes. So part of the reported fall in farm fires may be fires
 the satellites no longer see. It is evidence consistent with that explanation, not proof. Full log with caveats:
 [docs/FINDINGS.md](docs/FINDINGS.md).
+
+### Raw points on a static site
+The 11.8 million kept detections (108 MB gzipped) don't fit Vercel Hobby's 100 MB upload limit, so
+`firecal/export_points.py` splits them into 1° tile × year gzipped CSVs (8,701 files) published on GitHub Pages
+(`gh-pages` branch, https://infinitethoughts7.github.io/firecalendar/points/india/index.json). The browser downloads
+only the tiles and years it needs and keeps points inside the area. It uses the simplified map outline, so totals can
+differ slightly from the monthly counts at the border (Sangrur Oct–Nov 2024: 3,886 vs 3,900, 0.4 %).
 
 ## Limits
 A "fire count" is flagged pixels per satellite pass, not fires on the ground. Clouds, smoke and short fires between
