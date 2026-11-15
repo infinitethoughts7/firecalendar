@@ -43,6 +43,10 @@ select.small{height:30px;border:1px solid var(--line);border-radius:8px;padding:
 .chart.tall{height:420px}
 .btn{display:inline-block;height:34px;line-height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--navy);color:var(--navy);background:#fff;font-size:14px;cursor:pointer;text-decoration:none}
 .btn.primary{background:var(--navy);color:#fff}
+.askrow{display:flex;gap:8px;margin-top:8px}.askrow input{flex:1;min-width:0;height:34px;border:1px solid var(--line);border-radius:8px;padding:0 10px;font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.chips button{border:1px solid var(--line);background:var(--bg);border-radius:14px;padding:4px 10px;font-size:12.5px;cursor:pointer;color:var(--ink)}
+.qa{margin:8px 0;padding:10px 12px;border-radius:10px;font-size:14px;line-height:1.55}.qa.q{background:var(--bg);font-weight:600}.qa.a{border:1px solid var(--line)}
+.qa details{margin-top:6px;font-size:12px;color:var(--muted)}.qa.err{color:var(--bad)}
 .btn.sm{height:28px;line-height:28px;padding:0 10px;font-size:13px}
 .range{gap:12px}.range label{font-size:14px;color:var(--muted)}.range input{height:30px;border:1px solid var(--line);border-radius:6px;padding:0 6px;font:inherit;color:var(--ink)}
 #empty{padding:40px 10px;text-align:center}
@@ -104,6 +108,16 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
         <h3>⚠️ Satellites may be missing fires here</h3>
         <div class="muted" id="blindText"></div>
         <div id="chBlind" class="chart" style="height:220px"></div>
+      </div>
+      <div class="card" id="askCard">
+        <h3>💬 Ask FireCalendar <span class="muted" style="font-weight:400">· answers by Claude, using only this app's numbers</span></h3>
+        <div id="askLog"></div>
+        <form id="askForm" class="askrow" onsubmit="ask(event)">
+          <input id="askQ" maxlength="500" autocomplete="off" placeholder="e.g. Is burning here really falling? · ఖమ్మంలో మంటలు ఎప్పుడు? · पंजाब में 2024 में कितनी आग?">
+          <button class="btn primary" id="askBtn">Ask</button>
+        </form>
+        <div class="chips" id="askChips"></div>
+        <div class="muted" style="font-size:12px;margin-top:6px">Works for states and districts, in English, Hindi, Telugu and more. Claude can make mistakes; each answer lists the data it looked up.</div>
       </div>
       <div class="card">
         <h3>Burning calendar <span class="muted" style="font-weight:400">· fires per month, one consistent unit (MODIS-equivalent)</span></h3>
@@ -266,7 +280,7 @@ function render(){
     [fmt(a.value),'fires this month'],[fmt(a.median),'normal for this month'],[Math.round(a.percentile)+'%','of past years were lower'],[methodTxt[m.method]||'–','how this month was measured']]
     .map(([b,s])=>`<div class="stat"><b style="${b.length>12?'font-size:13px;line-height:1.3':''}">${b}</b><span>${s}</span></div>`).join('');
   renderBlind(d);renderCal(d);renderSeason(d,0);renderOutlook(d);renderTs(d);renderYr(d);renderTeam(d);renderMethods(d);
-  const [f0,t0]=rng(),lo=d.monthly[0].date,hi=d.monthly[d.monthly.length-1].date;setRange(f0&&f0>=lo&&f0<=hi?f0:lo,t0&&t0>=lo&&t0<=hi?t0:hi);
+  const [f0,t0]=rng(),lo=d.monthly[0].date,hi=d.monthly[d.monthly.length-1].date;setRange(f0&&f0>=lo&&f0<=hi?f0:lo,t0&&t0>=lo&&t0<=hi?t0:hi);askChips();
 }
 function stripYM(r){const o=Object.assign({},r);delete o.year;delete o.month;return o}
 function chart(id){if(!charts[id])charts[id]=echarts.init(document.getElementById(id));return charts[id]}
@@ -411,6 +425,33 @@ async function downloadPoints(){
     saveBlob(new Blob([r.csv],{type:'text/csv'}),`${fileBase()}_points${sfx}.csv`);
     el.innerHTML=old+` · <b>${fmt(r.n)}</b> raw hotspots saved`;
   }catch(e){el.innerHTML=old+` · <span style="color:#b91c1c">Raw hotspots: ${e.message}</span>`}
+}
+// ---- Ask FireCalendar: /api/ask (Vercel function; Claude with tools over the same JSON) ----
+let ASK_HIST=[];
+const escH=t=>t.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mdLite=t=>escH(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
+function askChips(){
+  const n=current?current.label.replace(/ \(approx\.,.*\)$/,''):'Punjab',a=current&&current.anomaly;
+  const m=a?new Date(a.year,a.month-1).toLocaleString('en',{month:'long',year:'numeric'}):'this month';
+  const qs=[`Is ${m} normal for ${n}?`,`Which months burn most in ${n}?`,`Are satellites missing fires in ${n}?`,'Did farm fires in Punjab really fall in 2025?'];
+  document.getElementById('askChips').innerHTML=qs.map(q=>`<button type="button">${escH(q)}</button>`).join('');
+  document.querySelectorAll('#askChips button').forEach(b=>b.onclick=()=>{document.getElementById('askQ').value=b.textContent;ask()});
+}
+async function ask(e){
+  e&&e.preventDefault();const inp=document.getElementById('askQ'),q=inp.value.trim(),log=document.getElementById('askLog'),btn=document.getElementById('askBtn');
+  if(!q||btn.disabled)return;inp.value='';btn.disabled=true;
+  log.insertAdjacentHTML('beforeend',`<div class="qa q">${escH(q)}</div><div class="qa a muted" id="askWait">Looking up FireCalendar's numbers…</div>`);
+  const a=current&&current.anomaly,ctx={area_id:req&&req.id||null,name:current&&current.label,year:a&&a.year,month:a&&a.month};
+  let html;
+  try{
+    const r=await fetch('api/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question:q,context:ctx,history:ASK_HIST})});
+    const j=await r.json().catch(()=>({error:'No answer (service unavailable).'}));
+    if(!r.ok||j.error)throw new Error(j.error||('error '+r.status));
+    const used=(j.tools||[]).map(t=>`${t.name}(${escH(Object.values(t.input).join(', '))})`).join(' · ');
+    html=`<div class="qa a">${mdLite(j.answer)}${used?`<details><summary>Data looked up</summary>${used}</details>`:''}</div>`;
+    ASK_HIST=[...ASK_HIST,{role:'user',text:q},{role:'assistant',text:j.answer}].slice(-4);
+  }catch(err){html=`<div class="qa a err">${escH(err.message)}</div>`}
+  document.getElementById('askWait').outerHTML=html;btn.disabled=false;
 }
 async function downloadPng(){
   const ids=['chCal','chBlind','chSeason','chTs','chYr'].filter(id=>{const e=document.getElementById(id);return e&&e.offsetParent&&charts[id]});
