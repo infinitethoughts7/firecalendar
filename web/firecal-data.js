@@ -212,6 +212,36 @@
     return [head, ...out].join('\n') + '\n';
   }
 
-  const api = { buildResponse, drawnArea, toCsv, yearlyCsv, cellsCsv, cellsOf, anomaly, calendarOf, monthlyRows, outlookFrom, inGeom };
+  // raw hotspot points: 1 deg tile x year gzipped CSVs (GitHub Pages), filtered to the shape and month range
+  async function pointsCsv(index, base, geom, name, from, to, onProgress, limit = 2000000) {
+    const xy = [];
+    (geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates).forEach(p => p[0].forEach(c => xy.push(c)));
+    const lo = [Math.min(...xy.map(c => c[0])), Math.min(...xy.map(c => c[1]))], hi = [Math.max(...xy.map(c => c[0])), Math.max(...xy.map(c => c[1]))];
+    const y0 = from ? +from.slice(0, 4) : 0, y1 = to ? +to.slice(0, 4) : 9999, keys = [];
+    for (const k of Object.keys(index.tiles)) {
+      const [yr, t] = k.split('/'), [ty, tx] = t.split('_').map(Number);
+      if (+yr >= y0 && +yr <= y1 && ty >= Math.floor(lo[1]) && ty <= Math.floor(hi[1]) && tx >= Math.floor(lo[0]) && tx <= Math.floor(hi[0])) keys.push(k);
+    }
+    const est = keys.reduce((s, k) => s + index.tiles[k], 0);
+    if (est > limit) throw new Error(`about ${Math.round(est / 1e3).toLocaleString()} thousand points in the tiles covering this area and range; please narrow the date range (limit ${(limit / 1e6)} million)`);
+    const rows = []; let done = 0;
+    const one = async k => {
+      const r = await fetch(`${base}/${k}.csv.gz`); if (!r.ok) throw new Error(`could not load points ${k} (${r.status})`);
+      const txt = await new Response(r.body.pipeThrough(new DecompressionStream('gzip'))).text();
+      const lines = txt.split('\n');
+      for (let i = 1; i < lines.length; i++) {
+        const L = lines[i]; if (!L) continue;
+        const c = L.split(','), m = c[2].slice(0, 7);
+        if ((from && m < from) || (to && m > to)) continue;
+        if (inGeom(+c[1], +c[0], geom)) rows.push(L);
+      }
+      onProgress && onProgress(++done, keys.length);
+    };
+    for (let i = 0; i < keys.length; i += 8) await Promise.all(keys.slice(i, i + 8).map(one));
+    rows.sort((a, b) => { const A = a.split(','), B = b.split(','); return (A[2] + A[3]).localeCompare(B[2] + B[3]); });
+    return { n: rows.length, csv: 'area,' + index.columns.join(',') + '\n' + rows.map(L => q(name) + ',' + L).join('\n') + '\n' };
+  }
+
+  const api = { buildResponse, drawnArea, toCsv, yearlyCsv, cellsCsv, pointsCsv, cellsOf, anomaly, calendarOf, monthlyRows, outlookFrom, inGeom };
   if (typeof module !== 'undefined') module.exports = api; else root.FC = api;
 })(this);

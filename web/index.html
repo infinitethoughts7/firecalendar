@@ -146,6 +146,7 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
           <button class="btn primary" onclick="download('monthly')">⬇ Monthly CSV</button>
           <button class="btn" onclick="download('yearly')">⬇ Yearly CSV</button>
           <button class="btn" onclick="download('cells')">⬇ Hotspots per grid cell (CSV)</button>
+          <button class="btn" onclick="downloadPoints()">⬇ Raw hotspots (CSV)</button>
           <button class="btn" onclick="downloadPng()">⬇ Charts (PNG)</button>
           <a class="btn" href="https://github.com/infinitethoughts7/firecalendar" id="repoBtn" target="_blank" rel="noopener">Code, data &amp; API on GitHub</a>
         </div>
@@ -398,6 +399,19 @@ async function download(kind){
   saveBlob(new Blob([txt],{type:'text/csv'}),`${fileBase()}_${kind}${sfx}.csv`);
 }
 // one PNG with every visible chart, its heading, the area and the source line
+// raw detections (lat, lon, date, time, satellite, FRP) for the area and range, from 1 deg tile x year files
+const POINTS_BASE='https://infinitethoughts7.github.io/firecalendar/points/'+COUNTRY;let POINTS_INDEX=null;
+async function downloadPoints(){
+  const el=document.getElementById('rangeSum'),old=el.innerHTML,[f,t]=rng(),sfx=(f||t)?`_${f||'start'}_to_${t||'end'}`:'';
+  const g=req.geometry||(selected&&selected.feature.geometry);if(!g)return;
+  try{
+    el.textContent='Loading hotspot points…';
+    POINTS_INDEX=POINTS_INDEX||await (await fetch(POINTS_BASE+'/index.json')).json();
+    const r=await FC.pointsCsv(POINTS_INDEX,POINTS_BASE,g,current.label,f,t,(d,n)=>{el.textContent=`Loading hotspot points… ${d}/${n} files`});
+    saveBlob(new Blob([r.csv],{type:'text/csv'}),`${fileBase()}_points${sfx}.csv`);
+    el.innerHTML=old+` · <b>${fmt(r.n)}</b> raw hotspots saved`;
+  }catch(e){el.innerHTML=old+` · <span style="color:#b91c1c">Raw hotspots: ${e.message}</span>`}
+}
 async function downloadPng(){
   const ids=['chCal','chBlind','chSeason','chTs','chYr'].filter(id=>{const e=document.getElementById(id);return e&&e.offsetParent&&charts[id]});
   const W=1400,pad=28,imgs=[];
