@@ -14,7 +14,7 @@ The browser rebuilds calendar, anomaly, yearly totals and CSV from these (web/in
 import json, os, shutil, sys, time
 import numpy as np, pandas as pd
 from firecal.app import compute, SHAPES, ENG, clean, ROOT
-from firecal.engine import outlook_table
+from firecal.engine import outlook_table, SNPP_END
 
 OUT = f"{ROOT}/web/data"
 METHOD_CODE = {"terra-adjusted": "t", "modis-measured": "m", "viirs-translated": "v"}
@@ -38,12 +38,13 @@ def area_json(country, aid):
 def grid_json(country):
     """per 0.5 deg cell x month: raw counts per satellite, MODIS-eq sums, daytime Aqua/S-NPP counts (blind-spot test)."""
     E = ENG[country]; c = E.cell
+    sn = f"CAST(date AS DATE) <= DATE '{SNPP_END.date()}'"      # blind-spot counts: only days S-NPP flew
     ist = "((CAST(substr(time_utc,1,2) AS INT)*60 + CAST(substr(time_utc,3,2) AS INT) + 330) / 60.0) % 24"
     df = E.db.execute(f"""
         SELECT floor(lat/{c})*{c} AS cy, floor(lon/{c})*{c} AS cx, year(CAST(date AS DATE)) AS yr, month(CAST(date AS DATE)) AS mo,
                satellite, count(*) AS n,
-               count(*) FILTER (WHERE {ist} > 8 AND {ist} < 20) AS nd,
-               sum({ist}) FILTER (WHERE {ist} > 8 AND {ist} < 20) AS ist_sum
+               count(*) FILTER (WHERE {ist} > 8 AND {ist} < 20 AND {sn}) AS nd,
+               sum({ist}) FILTER (WHERE {ist} > 8 AND {ist} < 20 AND {sn}) AS ist_sum
         FROM {E.fires} WHERE type=0 AND conf_class<>'low' GROUP BY ALL""").df()
     w = df.pivot_table(index=["cy", "cx", "yr", "mo"], columns="satellite", values="n", aggfunc="sum", fill_value=0)
     w = w.rename(columns={"Terra": "terra", "Aqua": "aqua", "N": "snpp", "N20": "n20"}).reset_index()
@@ -76,7 +77,8 @@ def meta_json(countries):
         sensors=dict(starts=e["starts"], snpp_end="2026-11-02", modis_stable_end=E.stable_end,
                      errors={k: {kk: e[k][kk] for kk in ["block_month_R2", "block_month_median_rel_err", "yearly_bias_rms"]}
                              for k in ["terra", "snpp", "n20"]}),
-        rel_err=rel, aqua_start=E.aqua_start.strftime("%Y-%m")))
+        rel_err=rel, aqua_start=E.aqua_start.strftime("%Y-%m"),
+        provisional_from=E.provisional_from, partial=list(E.partial) if E.partial else None))
 
 
 def main(country="India", only=None):

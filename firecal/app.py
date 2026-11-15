@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
 from shapely.geometry import shape, box
-from firecal.engine import Engine, season, outlook
+from firecal.engine import Engine, season, outlook, SNPP_END
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -67,7 +67,7 @@ def blind_spot(pts, cal):
     if len(pts) == 0: return None
     peak = cal.loc[2003:2021].median().nlargest(2).index.tolist()
     d = pts[(pts.satellite.isin(["Aqua", "N"]))].copy(); d["date"] = pd.to_datetime(d.date)
-    d = d[d.date.dt.month.isin(peak) & (d.date.dt.year >= 2012)]
+    d = d[d.date.dt.month.isin(peak) & (d.date.dt.year >= 2012) & (d.date <= SNPP_END)]   # only days S-NPP flew
     d["ist"] = (d.time_utc.str[:2].astype(int) * 60 + d.time_utc.str[2:].astype(int) + 330) / 60 % 24
     d = d[(d.ist > 8) & (d.ist < 20)]                       # daytime passes only
     g = d.groupby([d.date.dt.year, "satellite"]).size().unstack(fill_value=0)
