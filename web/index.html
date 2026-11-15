@@ -74,7 +74,7 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
   <section id="mapwrap">
     <div id="map"></div>
     <div class="mapbar">
-      <input id="search" list="arealist" placeholder="Search district or state…" title="e.g. Sangrur, Khammam, Odisha">
+      <input id="search" list="arealist" placeholder="District, state, or lat, lon…" title="e.g. Sangrur · Odisha · 30.25, 75.84 · 30.25, 75.84, 40 km">
       <datalist id="arealist"></datalist>
       <button id="bState" class="on" onclick="setLayer('state')">States</button>
       <button id="bDist" onclick="setLayer('district')">Districts</button>
@@ -188,7 +188,23 @@ function selectLayer(l){
   const p=l.feature.properties;run({id:p.id},p.name+(p.kind==='district'?', '+p.state:''));
 }
 const areaLabel=x=>x.name+(x.kind==='district'?', '+x.state:'');
+// "lat, lon" or "lat, lon, 40 km" -> circle (default radius 25 km, 5-150 km)
+function pickPoint(text){
+  const m=text.trim().match(/^(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)(?:\s*[,\s]\s*(\d+(?:\.\d+)?)\s*(?:km)?)?$/i);
+  if(!m)return false;
+  const lat=+m[1],lon=+m[2],r=Math.min(150,Math.max(5,m[3]?+m[3]:25));
+  if(Math.abs(lat)>90||Math.abs(lon)>180)return false;
+  const b=layers.state&&layers.state.getBounds();
+  if(b&&!b.pad(0.05).contains([lat,lon])){document.getElementById('search').value='';alert_('That point is outside India.');return true}
+  const ring=[];for(let i=0;i<=64;i++){const t=2*Math.PI*(i%64)/64;ring.push([+(lon+r/(111.32*Math.cos(lat*Math.PI/180))*Math.sin(t)).toFixed(5),+(lat+r/110.57*Math.cos(t)).toFixed(5)])}
+  drawn.clearLayers();const c=L.circle([lat,lon],{radius:r*1000,color:'#dc2626',weight:2,fillOpacity:.08});drawn.addLayer(c);map.fitBounds(c.getBounds(),{maxZoom:9});
+  if(selected)selected.setStyle(baseStyle);selected=null;
+  run({geometry:{type:'Polygon',coordinates:[ring]}},`${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E, ${r} km radius`);
+  return true;
+}
+function alert_(msg){document.getElementById('empty').style.display='none';const res=document.getElementById('result');res.style.display='block';document.getElementById('areaName').textContent='';document.getElementById('answer').textContent=msg;document.getElementById('answerDetail').textContent=''}
 async function pick(text){
+  if(pickPoint(text))return;
   const q=text.trim().toLowerCase(),name=q.split(',')[0].trim();   // full "district, state" first: names like Aurangabad repeat across states
   const a=AREAS.find(x=>areaLabel(x).toLowerCase()===q)||AREAS.find(x=>x.name.toLowerCase()===name)||AREAS.find(x=>x.name.toLowerCase().startsWith(name));
   if(!a)return;
@@ -210,7 +226,7 @@ async function run(body,label,year,month){
     META=META||await getJSON('data/meta.json');
     let A;
     if(req.id){A=AREA_CACHE.get(req.id)||await getJSON(`data/${COUNTRY}/areas/${req.id}.json`);AREA_CACHE.set(req.id,A)}
-    else{GRID=GRID||await getJSON(`data/${COUNTRY}/grid.json`);A=FC.drawnArea(GRID,META,req.geometry);label=`Your drawn area (approx., ${A.n_cells} cell${A.n_cells>1?'s':''} of ~55 km)`}
+    else{GRID=GRID||await getJSON(`data/${COUNTRY}/grid.json`);A=FC.drawnArea(GRID,META,req.geometry);label=`${(label||'Your drawn area').replace(/ \(approx\.,.*\)$/,'')} (approx., ${A.n_cells} cell${A.n_cells>1?'s':''} of ~55 km)`}
     j=FC.buildResponse(A,META,req.year,req.month);
   }catch(e){console.warn(e);if(my!==seq)return;res.classList.remove('loading');document.getElementById('areaName').textContent=label;document.getElementById('answer').textContent='Could not load this area.';return}
   if(my!==seq)return;
