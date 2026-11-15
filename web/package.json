@@ -1,0 +1,8 @@
+{
+  "name": "firecalendar-web",
+  "private": true,
+  "description": "Static FireCalendar site + one Vercel function (api/ask.js)",
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.8.0"
+  }
+}
