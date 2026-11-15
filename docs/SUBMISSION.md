@@ -1,95 +1,94 @@
-# Submission text (paste into the Space Apps form)
-Every number below is in docs/FINDINGS.md with how it was checked. `[ROCKY]` = fill in yourself.
+# Space Apps 2026 — submission text (copy field by field into the project page)
+Every number below comes from docs/FINDINGS.md (verified). All features named here are live (checked 15 Nov 2026).
 
-## F2. Project name
-FireCalendar
+---
+## 1. Project name
+FireCalendar — 25 years of NASA fire data, made comparable
 
-## F3. High-level summary
-FireCalendar answers one question for any place in India: is the burning here normal? It merges 25 years of NASA
-satellite fire detections from MODIS (since 2000) and VIIRS (since 2012) into a single consistent series, then shows a
-burning calendar, a comparison with history, critical fire seasons and downloadable data for any state, district,
-drawn area or lat/lon point. VIIRS sees about 5.5× more fires than MODIS and the ratio changes by place and season, so
-we translate between sensors per 55-km grid cell and month; this halves the error of a single multiplier. Each number
-comes with an uncertainty band and a label saying how it was measured. The harmonized record also reveals a blind
-spot: in Punjab, NASA's Aqua satellite now passes later in the afternoon and sees up to 3–4× more fires, relative to
-earlier VIIRS passes, than it used to. This is consistent with reports that farmers now burn after the main satellite
-passes, so some of the reported fall in farm fires may be fires the satellites no longer see.
+## 2. High-level project summary
+FireCalendar turns two decades of NASA satellite fire detections into one consistent burning calendar that anyone can read. MODIS (since 2000) and VIIRS (since 2012) count fires very differently: VIIRS reports about 5.5 times more detections over India, and the gap changes by region (3.6× to 7.8×) and by season. We built a validated translator, learned for every 55 km cell and calendar month, that converts all records into one unit, so the sensor no longer matters. Pick a state or district, draw an area or enter coordinates, and FireCalendar answers in plain words: "November 2024 in Sangrur, Punjab: much lower than usual." It shows the 2000–2026 calendar, the normal for each month, uncertainty bands, the fire-season start and peak, and a 4-week outlook, with CSV and chart downloads. It is also honest about what satellites cannot see. Our analysis found that as NASA's Aqua satellite drifted to later afternoon passes, it began seeing 3.9 times (2025) and 6.7 times (2026, provisional) its usual share of Punjab stubble fires relative to the early-afternoon VIIRS satellite, consistent with reports that burning moved to late afternoon. So FireCalendar warns users when a falling fire count may partly be fires the satellites missed. Users can also ask questions in English, Hindi or Telugu; Claude answers only from FireCalendar's own numbers.
 
-## F6. Final project links
-- Live app (no login): https://firecalendar-ten.vercel.app
-- Code, data and method: https://github.com/infinitethoughts7/firecalendar
+## 3. Link to project demo
+Video (29.6 s, English subtitles burned in): https://github.com/infinitethoughts7/firecalendar/blob/master/docs/FireCalendar_demo_30s.mp4
+Slides (7, PDF, backup): https://github.com/infinitethoughts7/firecalendar/blob/master/docs/FireCalendar_slides.pdf
 
-## F7. Detailed project description
-**What it does.** FireCalendar is a free web app for emergency and early-warning teams, scientists and land managers.
-Pick an area (36 states, 641 districts, a drawn polygon, or `lat, lon, radius`) and a month. The app shows:
-- the number of fires in one consistent unit (MODIS-equivalent), with an uncertainty range;
-- how that compares with the same month in other years: median, average, percentile, and a plain label such as
-  "much lower than usual";
-- a burning calendar (years × months, Dec 2000 → Nov 2026), monthly and yearly charts, the area's fire seasons with
-  their trend (the Punjab Oct–Nov season now starts about 8 days later per decade), and a 4-week outlook from history;
-- a blind-spot alert where satellite timing may now hide fires;
-- downloads for any date range: monthly, yearly and per-grid-cell CSV, plus one PNG of all charts. An open API (local
-  FastAPI, documented at /docs) also returns raw hotspot points.
+## 4. Link to final project
+Live app (no login): https://firecalendar-ten.vercel.app
+Code: https://github.com/infinitethoughts7/firecalendar
 
-**How it works.** We downloaded 14.6 million FIRMS detections for India (MODIS C6.1 2000–2025; VIIRS S-NPP 2012–2025;
-VIIRS NOAA-20 2018–2025), plus 1.2 million detections for 2026 through the FIRMS API (near-real-time months are
-labelled provisional). We keep vegetation fires only and remove low-confidence detections. MODIS is used as measured
-for Aug 2002 – 2021. Before Aqua (to Jul 2002) we scale Terra with a learned factor. From 2022, both MODIS orbits had
-drifted, so we translate VIIRS into MODIS units with factors learned per 0.5° cell × calendar month on the stable
-years. Validation is leave-one-year-out: R² 0.978 (S-NPP) and 0.985 (NOAA-20) at about 200 km × monthly scale, with a
-median monthly error of 16–18% and a yearly bias of 3.5–5.6%. That error becomes the uncertainty band shown in the
-app. The public site is static (precomputed JSON), so it is fast and never sleeps. Drawn areas are harmonized in the
-browser.
+## 5. Detailed project description
+**What it does**
+- One harmonized burning calendar (years × months, Dec 2000 → Nov 2026) for any Indian state (36), district (641), drawn area, or latitude/longitude point, in a single unit: MODIS-equivalent fire detections.
+- A plain-language answer for any month: how many fires, the normal for that month (median and average of past years), the percentile, and a label from "much lower" to "much higher than usual".
+- Fire-season clock: when each burning season starts, peaks and ends every year, and whether it is shifting. Punjab's Oct–Nov stubble season now starts 8.3 days per decade later (95% range +6.0 to +10.0); Odisha's Feb–May forest-fire season starts 16.7 days per decade earlier.
+- A 4-week outlook from history: what the next weeks usually look like in this area (a climatology, clearly labelled as not a forecast).
+- A blind-spot warning: polar-orbiting satellites only look at fixed times of day. When an area's fires appear to be falling but the later-afternoon satellite keeps seeing more, FireCalendar warns that part of the drop may be unseen fires.
+- Downloads: monthly harmonized CSV with low/high estimates and the raw count from every satellite, raw hotspot CSV for the area and date range, and PNG images of the charts.
+- Ask FireCalendar: type a question in English, Hindi or Telugu ("Did farm fires in Punjab really fall in 2025?"). Claude looks up FireCalendar's own numbers with tools and answers only from them, listing the data it used. Rate-limited, with a daily cap and a kill switch.
+- Works on desktop and phone; static site, loads fast, no login.
 
-**Why it matters.** Fire statistics are used to judge policy, for example claims that farm fires in Punjab fell
-sharply. Raw sensor counts can't be compared over time, and our data show that the time of the satellite's pass now
-matters. Punjab Oct–Nov detections from the ~13:30 VIIRS pass fell 95% from 2021 to 2025. The later-passing Aqua
-(about 15:15 IST in 2025) shows −81%. Aqua detections per VIIRS detection, against the 2012–19 normal, rose from
-about 1.0× to 3.98× (2025), with no rise in a control region. This is consistent with ISRO SAC (Current Science,
-Nov 2025) and iFOREST (Dec 2025) reports of burning moving to late afternoon. FireCalendar flags this per area
-instead of hiding it.
+**How it works**
+1. Data: NASA FIRMS active-fire records for India, 14.6 million detections (2000–2025) plus 1.2 million for 2026 (Jan–14 Nov). We keep vegetation fires only and remove low-confidence detections (classes per NASA's MODIS C6.1 user guide).
+2. The problem: MODIS pixels are about 1 km and VIIRS pixels 375 m, so VIIRS sees smaller fires and splits big ones into more pixels. The ratio between them changes by place and season, so one multiplier is wrong.
+3. One unit: MODIS (Terra + Aqua) is the reference for 2002–2021, when both orbits were stable. Before Aqua (2000–02), Terra-only counts are scaled by a learned factor. From 2022, Terra and Aqua orbits drift to different times of day (Aqua from ~13:30 to ~15:50 IST), so we translate VIIRS (S-NPP and NOAA-20) into MODIS units. Translation factors are learned per 0.5° cell and calendar month on 2012–2021 and shrunk toward the monthly average where data are thin. The method already survives the end of S-NPP fire data (2 Nov 2026), because NOAA-20 carries on.
+4. Validation: each year was hidden in turn, the translator learned on the other years, and the hidden year predicted from VIIRS alone. Accuracy at ~200 km, monthly: R² 0.978 (S-NPP) and 0.985 (NOAA-20); typical monthly error ±16–18%; yearly totals within ±3.5–5.6%. That halves the error of a single national multiplier. These errors become the uncertainty band on every number in the app.
+5. Checks: the static site reproduces our Python API in 180 of 180 test cases; independent counts from the raw data match the site exactly in 4 of 4 spot checks; 2026 near-real-time data are labelled provisional.
 
-**Tools.** Python (DuckDB, Polars, pandas, Shapely, FastAPI), JavaScript (Leaflet, Leaflet.draw, Apache ECharts),
-Vercel (static hosting), GitHub.
+**Benefits**
+- Emergency and forest officers see at a glance whether this month is unusual and when the season usually starts, to plan crews and patrols.
+- Pollution and agriculture departments can target stubble-burning districts and weeks, and see when official declines may be overstated.
+- Scientists get a consistent, open, uncertainty-aware fire record that continues after MODIS retires.
+- Citizens and journalists can check fire claims in plain language.
 
-## F8. NASA data
-- FIRMS MODIS Collection 6.1 active fire / hotspot data (Terra and Aqua), 2000–2026: standard processing; near-real-time
-  from Sep 2026.
-- FIRMS VIIRS 375 m active fire data: Suomi NPP (2012 – 2 Nov 2026, end of S-NPP production) and NOAA-20 (2018–2026);
-  standard processing, near-real-time from Aug 2026.
-- Sources: FIRMS country archive (firms.modaps.eosdis.nasa.gov/data/country) and the FIRMS area API.
-- MODIS C6/C6.1 Active Fire Product User Guide (confidence classes, §8.4.3).
+**Goals**
+Make NASA fire data comparable across sensors and years, readable by non-scientists, and honest about its limits.
 
-## F9. Space-agency partner and other data
-- India state and district boundaries: datameet (github.com/datameet/maps), based on Census 2011 districts reassigned to
-  current states.
-- Basemap tiles: © OpenStreetMap contributors.
-- Published reports cited for context (not used as data): ISRO Space Applications Centre (Current Science, Nov 2025);
-  iFOREST (Dec 2025).
-- Libraries: Leaflet, Leaflet.draw, Apache ECharts, DuckDB, Polars, pandas, Shapely, FastAPI.
+**Tools**
+Python (pandas, Polars, DuckDB, Shapely, NumPy), FastAPI (API and local development), JavaScript, Leaflet and Leaflet.draw (map), Apache ECharts (charts), Vercel (static hosting + one serverless function), Anthropic Claude API (Ask FireCalendar), Playwright (testing), ffmpeg (demo video), Git.
 
-## F10. Use of AI
-This project was built with Claude (Anthropic), using Claude Code as a coding assistant. Claude helped write the data
-pipeline, the web app, the validation scripts and the documentation. The author directed, reviewed and tested
-everything. Every number in the app, the README and this submission is computed by our code from NASA FIRMS data and
-checked against the raw detections; none was generated by the AI. No AI-generated images, video or audio are used.
-[If the video uses AI voice or images, add a visible "AI-generated" watermark and say so here.]
+**Who it's for and how to use it**
+1. Pick a state or district, draw an area, or enter coordinates. 2. Read the answer card. 3. Explore the calendar, season clock and outlook, then download the data.
+- District disaster-management and forest officers: "Is burning unusual this month? When does our season start?"
+- Pollution control boards and air-quality planners: "How much burning is upwind, and can we trust the drop?"
+- Agriculture departments: "Which districts and weeks need crop-residue support?"
+- Scientists and students: "I need a consistent fire record since 2000, with uncertainty."
+- Journalists, NGOs and citizens: "Is the claim that fires fell by X% true?"
+- Land and protected-area managers: "Is this forest's fire pattern abnormal this year?"
 
-## F4. 30-second video: script (English subtitles)
-| s | Screen | Subtitle |
-|---|---|---|
-| 0–4 | Punjab on the map | "Farm fires in Punjab fell sharply, the satellites say. Did they?" |
-| 4–10 | Burning calendar, Punjab | "FireCalendar merges 25 years of NASA MODIS and VIIRS fire data into one comparable record." |
-| 10–16 | Answer card: Nov 2024 "much lower than usual" | "Any area, any month: how much fire, compared with normal, and how sure we are." |
-| 16–24 | Blind-spot chart, bars rising with the Aqua pass time | "But NASA's Aqua now passes later in the afternoon, and it sees up to 4× more fires than before, relative to earlier passes." |
-| 24–30 | Logo + URL | "Some fires may be hiding from the satellites. FireCalendar shows where. firecalendar-ten.vercel.app" |
+**Future scope**
+- Close the evening blind spot with geostationary fire data (ISRO's INSAT-3D series, Meteosat over the Indian Ocean, Himawari), which look every 10–30 minutes.
+- Cross-check counts with burned-area products and with Landsat/Sentinel-2 for small fires.
+- Energy-based harmonization using fire radiative power, leading to smoke-emission estimates.
+- Link fires to air quality (ground stations, Sentinel-5P) downwind.
+- Weather-driven fire forecasts instead of history-only outlooks.
+- Continuity with NOAA-21 and future JPSS satellites after MODIS retires.
+- More countries, block/village boundaries, offline mode, and WhatsApp/SMS alerts in regional languages.
 
-## F5. Slides (≤ 7)
-1. Title: FireCalendar · team `[ROCKY]` · members `[ROCKY]` · challenge "Harmonization of MODIS and VIIRS Hot Spots".
-2. Problem: two sensors, 5.5× different counts, and the ratio varies (3.6–7.8× by region); MODIS orbit drift after 2021.
-3. Method: three periods (terra-adjusted / MODIS measured / VIIRS translated), per-cell × month factors, uncertainty
-   band.
-4. Validation: R² 0.978 / 0.985 / 0.801 table; the per-cell method halves the error of a single multiplier.
-5. App: screenshot (calendar + answer card + downloads); states, districts, draw, lat/lon, date range, CSV/PNG.
-6. Finding: Punjab blind spot, with the Aqua-vs-VIIRS bar chart, "consistent with" ISRO/iFOREST, and the control region.
-7. Impact and next steps: daily updates, more countries, alerts; links to the app and the repo; built with Claude.
+## 6. NASA data
+- NASA FIRMS (Fire Information for Resource Management System) active-fire / hotspot data:
+  - MODIS Collection 6.1 (Terra and Aqua), 1 km, Nov 2000 – Nov 2026.
+  - VIIRS 375 m active fire product, Suomi NPP (Jan 2012 – 2 Nov 2026) and NOAA-20 (Apr 2018 – Nov 2026).
+  - Standard-processing country archives (2000–2025) and the FIRMS area API for 2026 (standard processing to Jul/Aug, near-real-time after, labelled provisional).
+- How we used it: cleaned and unified 15.8 million detections; learned and validated a cell-by-month translator between sensors; built the harmonized calendar, anomaly, season and outlook views; analysed satellite overpass times to detect the afternoon blind spot.
+- Reference: NASA MODIS C6/C6.1 Active Fire Product User Guide (confidence classes); FIRMS FAQ (pixel sizes, overpass times, S-NPP end of production).
+
+## 7. Space agency partner & other data
+- ISRO Space Applications Centre study (Current Science, Nov 2025) and iFOREST Stubble Burning Status Report 2025 (Dec 2025): cited as outside evidence for the late-afternoon burning shift. Their data are not used in our calculations.
+- India state and district boundaries: DataMeet "maps" project (Census 2011 districts re-assigned to current states), open licence.
+- Basemap: © OpenStreetMap contributors (standard tiles).
+- Open-source libraries: Leaflet, Leaflet.draw, Apache ECharts, pandas, Polars, DuckDB, Shapely, FastAPI.
+- Anthropic Claude API (Claude Opus 5.5): powers the in-app "Ask FireCalendar" answers.
+- ElevenLabs: AI voice for the demo video narration (voice "Manish").
+- The demo video globe is rendered by our own script from real NASA VIIRS 2024 detections; app shots are a live screen recording of the public site.
+- No copyrighted images or media are used.
+
+## 8. Use of Super Intelligence (SI)
+Yes. We used Claude (Anthropic) as an assistant during the hackathon:
+- To write and debug code: the data pipeline, harmonization and validation scripts, the API and the web app (via Claude Code). All AI-written code was run, tested and checked against the raw NASA data by the team (see Validation and Checks above).
+- To explain satellite fire-detection details while we worked, and to draft documentation and this submission text, which the team reviewed.
+- Inside the app, "Ask FireCalendar" uses Claude to answer user questions. It can only read FireCalendar's computed numbers through tools, is told not to add outside facts, and shows the data it looked up. The app labels these answers as written by Claude.
+- Audio: the demo video's voiceover is an AI voice generated with ElevenLabs. This is stated on screen for the whole video ("AI voice: ElevenLabs") and in the video file's metadata.
+- No AI-generated images or video footage are used. The globe is rendered from real NASA VIIRS detections; app shots are a live screen recording. The repository README also records this.
+
+## 9. Team
+Team name: Guardians of Galaxy · Members: Nagesh V, Rakesh G, Praveen G · Challenge: Harmonization of MODIS and VIIRS Hot Spots
