@@ -115,15 +115,20 @@
     return polys.some(p => inRing(x, y, p[0]) && !p.slice(1).some(h => inRing(x, y, h)));
   }
 
-  function drawnArea(G, meta, geom) {
+  // grid cells whose centre is inside the shape; a shape smaller than a cell gets the cell under its centre
+  function cellsOf(G, geom) {
     const h = G.cell / 2, cells = new Set();
-    let pick = i => inGeom(G.cx[i] + h, G.cy[i] + h, geom);
-    for (let i = 0; i < G.n; i++) if (pick(i)) cells.add(G.cy[i] + ',' + G.cx[i]);
-    if (!cells.size) {               // smaller than a cell: use the cell under the shape's centre
+    for (let i = 0; i < G.n; i++) if (inGeom(G.cx[i] + h, G.cy[i] + h, geom)) cells.add(G.cy[i] + ',' + G.cx[i]);
+    if (!cells.size) {
       const pts = (geom.type === 'Polygon' ? geom.coordinates[0] : geom.coordinates[0][0]);
       const cx = mean(pts.map(p => p[0])), cy = mean(pts.map(p => p[1]));
       cells.add(Math.floor(cy / G.cell) * G.cell + ',' + Math.floor(cx / G.cell) * G.cell);
     }
+    return cells;
+  }
+
+  function drawnArea(G, meta, geom) {
+    const cells = cellsOf(G, geom);
     const [ey, em] = meta.data_end.split('-').map(Number), [y0, m0] = G.month0.split('-').map(Number);
     const N = (ey - y0) * 12 + (em - m0) + 1;
     const Z = () => new Float64Array(N);
@@ -173,14 +178,40 @@
     return { peak_months: peak.sort((a, b) => a - b), years, flag: recent.length > 0 && Math.max(...recent.map(x => x.relative || 0)) >= 1.5 };
   }
 
-  // ---- CSV (same columns as /api/csv) --------------------------------------------------------------------
-  function toCsv(d, meta) {
+  // ---- CSV (same columns as /api/csv); optional month range 'YYYY-MM' (inclusive) ---------------------------
+  const inRange = (date, from, to) => (!from || date >= from) && (!to || date <= to);
+  const q = s => /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s, f1 = v => v == null ? '' : String(Math.round(v * 10) / 10);
+  function toCsv(d, meta, from, to) {
     const rel = { 'terra-adjusted': meta.rel_err.t, 'modis-measured': 0, 'viirs-translated': meta.rel_err.v };
-    const q = s => /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s, f = v => v == null ? '' : String(Math.round(v * 10) / 10);
+    const f = f1;
     const head = 'area,month,raw_terra_modis,raw_aqua_modis,raw_snpp_viirs,raw_noaa20_viirs,raw_modis_total,method,fires_modis_equivalent,rel_err,low_estimate,high_estimate,viirs_translated_modis_eq';
-    return [head, ...d.monthly.map(r => [q(d.name), r.date, r.terra, r.aqua, r.snpp, r.n20, r.modis, r.method, f(r.value), f(rel[r.method]), f(r.lo), f(r.hi), f(r.viirs_eq)].join(','))].join('\n') + '\n';
+    return [head, ...d.monthly.filter(r => inRange(r.date, from, to)).map(r => [q(d.name), r.date, r.terra, r.aqua, r.snpp, r.n20, r.modis, r.method, f(r.value), f(rel[r.method]), f(r.lo), f(r.hi), f(r.viirs_eq)].join(','))].join('\n') + '\n';
   }
 
-  const api = { buildResponse, drawnArea, toCsv, anomaly, calendarOf, monthlyRows, outlookFrom, inGeom };
+  // yearly totals within the range; n_months says how many months of that year are included
+  function yearlyCsv(d, from, to) {
+    const by = new Map();
+    d.monthly.filter(r => inRange(r.date, from, to)).forEach(r => {
+      const y = +r.date.slice(0, 4), o = by.get(y) || { n: 0, value: 0, lo: 0, hi: 0, terra: 0, aqua: 0, snpp: 0, n20: 0, methods: new Set() };
+      o.n++; o.value += r.value; o.lo += r.lo; o.hi += r.hi; o.terra += r.terra; o.aqua += r.aqua; o.snpp += r.snpp; o.n20 += r.n20; o.methods.add(r.method); by.set(y, o);
+    });
+    const head = 'area,year,n_months,fires_modis_equivalent,low_estimate,high_estimate,raw_terra_modis,raw_aqua_modis,raw_snpp_viirs,raw_noaa20_viirs,methods';
+    return [head, ...[...by].map(([y, o]) => [q(d.name), y, o.n, f1(o.value), f1(o.lo), f1(o.hi), o.terra, o.aqua, o.snpp, o.n20, [...o.methods].join('|')].join(','))].join('\n') + '\n';
+  }
+
+  // hotspot counts per 0.5 deg grid cell x month x satellite for the cells covering the area (approximate)
+  function cellsCsv(G, geom, name, from, to) {
+    const cells = cellsOf(G, geom), [y0, m0] = G.month0.split('-').map(Number), out = [];
+    const head = 'area,cell_lat_min,cell_lon_min,cell_size_deg,month,raw_terra_modis,raw_aqua_modis,raw_snpp_viirs,raw_noaa20_viirs,modis_eq_from_terra,modis_eq_from_snpp,modis_eq_from_noaa20';
+    for (let i = 0; i < G.n; i++) {
+      if (!cells.has(G.cy[i] + ',' + G.cx[i])) continue;
+      const t = y0 * 12 + (m0 - 1) + G.t[i], date = ym(Math.floor(t / 12), t % 12 + 1);
+      if (!inRange(date, from, to)) continue;
+      out.push([q(name), G.cy[i], G.cx[i], G.cell, date, G.terra[i], G.aqua[i], G.snpp[i], G.n20[i], G.terra_eq[i], G.snpp_eq[i], G.n20_eq[i]].join(','));
+    }
+    return [head, ...out].join('\n') + '\n';
+  }
+
+  const api = { buildResponse, drawnArea, toCsv, yearlyCsv, cellsCsv, cellsOf, anomaly, calendarOf, monthlyRows, outlookFrom, inGeom };
   if (typeof module !== 'undefined') module.exports = api; else root.FC = api;
 })(this);

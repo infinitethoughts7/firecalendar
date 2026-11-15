@@ -43,6 +43,8 @@ select.small{height:30px;border:1px solid var(--line);border-radius:8px;padding:
 .chart.tall{height:420px}
 .btn{display:inline-block;height:34px;line-height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--navy);color:var(--navy);background:#fff;font-size:14px;cursor:pointer;text-decoration:none}
 .btn.primary{background:var(--navy);color:#fff}
+.btn.sm{height:28px;line-height:28px;padding:0 10px;font-size:13px}
+.range{gap:12px}.range label{font-size:14px;color:var(--muted)}.range input{height:30px;border:1px solid var(--line);border-radius:6px;padding:0 6px;font:inherit;color:var(--ink)}
 #empty{padding:40px 10px;text-align:center}
 #empty h2{font-size:22px;margin:0 0 8px}
 .legend span{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 4px 0 12px;vertical-align:middle}
@@ -138,11 +140,15 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
       </div>
       <div class="card">
         <h3>Download and reuse</h3>
-        <div class="row">
-          <button class="btn primary" onclick="downloadCsv()">⬇ Download CSV</button>
+        <div class="row range"><label>From <input type="month" id="dFrom"></label><label>to <input type="month" id="dTo"></label>
+          <button class="btn sm" onclick="setRange()">All years</button><span class="muted" id="rangeSum"></span></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn primary" onclick="download('monthly')">⬇ Monthly CSV</button>
+          <button class="btn" onclick="download('yearly')">⬇ Yearly CSV</button>
+          <button class="btn" onclick="download('cells')">⬇ Hotspots per grid cell (CSV)</button>
           <a class="btn" href="" id="repoBtn" target="_blank" style="display:none">Code, data &amp; API on GitHub</a>
         </div>
-        <div class="muted" style="margin-top:8px">CSV has every month since 2000: the harmonized value, its low and high estimate, the method used, and the raw counts from each satellite.</div>
+        <div class="muted" style="margin-top:8px">All downloads use the date range above, which also zooms the monthly chart. <b>Monthly CSV</b>: harmonized value, low/high estimate, method, raw counts per satellite. <b>Yearly CSV</b>: the same summed by year (n_months shows partial years). <b>Hotspots per grid cell</b>: raw detections per satellite in each ~55 km cell covering the area, per month. Individual hotspot points (lat/lon/time/FRP) come from the open API when run locally (<code>/api/points</code>, see GitHub), or from NASA FIRMS.</div>
       </div>
     </div>
     <details class="card" id="methods">
@@ -258,6 +264,7 @@ function render(){
     [fmt(a.value),'fires this month'],[fmt(a.median),'normal for this month'],[Math.round(a.percentile)+'%','of past years were lower'],[methodTxt[m.method]||'–','how this month was measured']]
     .map(([b,s])=>`<div class="stat"><b style="${b.length>12?'font-size:13px;line-height:1.3':''}">${b}</b><span>${s}</span></div>`).join('');
   renderBlind(d);renderCal(d);renderSeason(d,0);renderOutlook(d);renderTs(d);renderYr(d);renderTeam(d);renderMethods(d);
+  const [f0,t0]=rng(),lo=d.monthly[0].date,hi=d.monthly[d.monthly.length-1].date;setRange(f0&&f0>=lo&&f0<=hi?f0:lo,t0&&t0>=lo&&t0<=hi?t0:hi);
 }
 function stripYM(r){const o=Object.assign({},r);delete o.year;delete o.month;return o}
 function chart(id){if(!charts[id])charts[id]=echarts.init(document.getElementById(id));return charts[id]}
@@ -365,9 +372,29 @@ function renderMethods(d){
   <p><b>Blind-spot check.</b> Polar satellites only photograph a place at fixed times (about 10:30 am, 1:30 pm, 1:30 am). Aqua's orbit has drifted later since 2022, so it now acts as a later-afternoon witness. If, in an area's main burning months, Aqua sees ≥1.5× more fires than it used to relative to the 1:30 pm VIIRS satellite, we warn that falling counts may partly be fires burning outside satellite view.</p>
   <p><b>Limits.</b> A fire count is the number of satellite pixels flagged as burning on each pass, not the number of fires on the ground. Clouds and smoke hide fires, and short fires between passes are missed.</p>`;
 }
-async function downloadCsv(){
-  const b=new Blob([FC.toCsv(current,META)],{type:'text/csv'}),u=URL.createObjectURL(b),a=document.createElement('a');
-  a.href=u;a.download='firecalendar_'+current.label.replace(/\(.*\)/,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'').toLowerCase()+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+// ---- date range + downloads -------------------------------------------------------------------------
+const rng=()=>[document.getElementById('dFrom').value||null,document.getElementById('dTo').value||null];
+function setRange(from,to){
+  const ms=current.monthly,a=document.getElementById('dFrom'),b=document.getElementById('dTo'),lo=ms[0].date,hi=ms[ms.length-1].date;
+  [a,b].forEach(x=>{x.min=lo;x.max=hi});a.value=from||lo;b.value=to||hi;rangeChanged();
+}
+function rangeChanged(){
+  let [f,t]=rng();if(f&&t&&f>t){[f,t]=[t,f];document.getElementById('dFrom').value=f;document.getElementById('dTo').value=t}
+  const rs=current.monthly.filter(r=>(!f||r.date>=f)&&(!t||r.date<=t)),sum=k=>rs.reduce((s,r)=>s+(r[k]||0),0);
+  document.getElementById('rangeSum').innerHTML=rs.length?`${rs.length} months · <b>${fmt(sum('value'))}</b> fires (MODIS-eq., range ${fmt(sum('lo'))}–${fmt(sum('hi'))})`:'no months in range';
+  const x=current.monthly.map(r=>r.date),i0=Math.max(0,x.indexOf(f)),i1=x.indexOf(t)<0?x.length-1:x.indexOf(t);
+  chart('chTs').dispatchAction({type:'dataZoom',startValue:i0,endValue:i1});
+}
+['dFrom','dTo'].forEach(id=>document.getElementById(id).addEventListener('change',rangeChanged));
+const fileBase=()=>'firecalendar_'+current.label.replace(/\(.*\)/,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,'').toLowerCase();
+function saveBlob(blob,name){const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+async function download(kind){
+  const [f,t]=rng(),sfx=(f||t)?`_${f||'start'}_to_${t||'end'}`:'';let txt;
+  const named=Object.assign({},current,{name:current.label});
+  if(kind==='monthly')txt=FC.toCsv(named,META,f,t);
+  else if(kind==='yearly')txt=FC.yearlyCsv(named,f,t);
+  else{GRID=GRID||await getJSON(`data/${COUNTRY}/grid.json`);const g=req.geometry||(selected&&selected.feature.geometry);if(!g)return;txt=FC.cellsCsv(GRID,g,current.label,f,t)}
+  saveBlob(new Blob([txt],{type:'text/csv'}),`${fileBase()}_${kind}${sfx}.csv`);
 }
 </script>
 </body>
