@@ -146,6 +146,7 @@ details summary{cursor:pointer;font-weight:600;font-size:14px}
           <button class="btn primary" onclick="download('monthly')">⬇ Monthly CSV</button>
           <button class="btn" onclick="download('yearly')">⬇ Yearly CSV</button>
           <button class="btn" onclick="download('cells')">⬇ Hotspots per grid cell (CSV)</button>
+          <button class="btn" onclick="downloadPng()">⬇ Charts (PNG)</button>
           <a class="btn" href="" id="repoBtn" target="_blank" style="display:none">Code, data &amp; API on GitHub</a>
         </div>
         <div class="muted" style="margin-top:8px">All downloads use the date range above, which also zooms the monthly chart. <b>Monthly CSV</b>: harmonized value, low/high estimate, method, raw counts per satellite. <b>Yearly CSV</b>: the same summed by year (n_months shows partial years). <b>Hotspots per grid cell</b>: raw detections per satellite in each ~55 km cell covering the area, per month. Individual hotspot points (lat/lon/time/FRP) come from the open API when run locally (<code>/api/points</code>, see GitHub), or from NASA FIRMS.</div>
@@ -395,6 +396,22 @@ async function download(kind){
   else if(kind==='yearly')txt=FC.yearlyCsv(named,f,t);
   else{GRID=GRID||await getJSON(`data/${COUNTRY}/grid.json`);const g=req.geometry||(selected&&selected.feature.geometry);if(!g)return;txt=FC.cellsCsv(GRID,g,current.label,f,t)}
   saveBlob(new Blob([txt],{type:'text/csv'}),`${fileBase()}_${kind}${sfx}.csv`);
+}
+// one PNG with every visible chart, its heading, the area and the source line
+async function downloadPng(){
+  const ids=['chCal','chBlind','chSeason','chTs','chYr'].filter(id=>{const e=document.getElementById(id);return e&&e.offsetParent&&charts[id]});
+  const W=1400,pad=28,imgs=[];
+  for(const id of ids){
+    const src=charts[id].getDataURL({type:'png',pixelRatio:2,backgroundColor:'#fff'}),im=new Image();im.src=src;await im.decode();
+    const h3=document.getElementById(id).closest('.card').querySelector('h3');imgs.push([h3?h3.textContent:'',im]);
+  }
+  const hs=imgs.map(([,im])=>Math.round(im.height*(W-2*pad)/im.width)),H=110+hs.reduce((a,h)=>a+h+52,0)+40;
+  const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+  x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#14213d';x.font='bold 30px system-ui,sans-serif';x.fillText('🔥 FireCalendar — '+current.label,pad,50);
+  x.font='16px system-ui,sans-serif';x.fillStyle='#5b6475';x.fillText(`${document.getElementById('answer').textContent} · harmonized MODIS-equivalent fire counts · data through ${dLong(current.data_end)}`,pad,80);
+  let y=110;imgs.forEach(([t,im],i)=>{x.fillStyle='#14213d';x.font='bold 20px system-ui,sans-serif';x.fillText(t,pad,y+24);x.drawImage(im,pad,y+36,W-2*pad,hs[i]);y+=hs[i]+52});
+  x.fillStyle='#5b6475';x.font='14px system-ui,sans-serif';x.fillText('Source: NASA FIRMS (MODIS C6.1, VIIRS 375 m) harmonized by FireCalendar · '+location.host,pad,H-16);
+  c.toBlob(b=>saveBlob(b,fileBase()+'_charts.png'),'image/png');
 }
 </script>
 </body>
