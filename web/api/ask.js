@@ -125,7 +125,7 @@ module.exports = async (req, res) => {
   const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
   const question = String(body.question || '').trim().slice(0, MAX_Q);
   if (!question) return res.status(400).json({ error: 'Empty question.' });
-  const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+  const ip = String(req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';   // x-real-ip is set by Vercel
   const block = allowed(ip); if (block) return res.status(429).json({ error: block });
 
   // what the user is looking at (optional): helps "here" / "this month"
@@ -143,7 +143,7 @@ module.exports = async (req, res) => {
   try {
     for (let step = 0; step < MAX_STEPS; step++) {
       const r = await client.beta.messages.create({
-        model: MODEL, max_tokens: 2000, system: SYSTEM, tools: TOOLS, messages,
+        model: MODEL, max_tokens: 800, system: SYSTEM, tools: TOOLS, messages,
         output_config: { effort: 'low' },
         betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
       });
