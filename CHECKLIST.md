@@ -28,7 +28,7 @@ Live: https://firecalendar-ten.vercel.app  ·  Evidence below = checks run on 15
 - [x] B3. Terra-only period adjusted. — Months before Aug 2002 method "terra-adjusted" (Terra × learned factor), ±24.5% band.
 - [x] B4. MODIS only for stable years; drift handled. — modis_stable_end=2021; 2022→ "viirs-translated" (Punjab 2024-11 method v).
 - [x] B5. Factors per 0.5° cell × month, trained ≤2021, correct starts. — errors_india.json cell_deg 0.5, starts snpp 2012-02, n20 2018-05; S-NPP stops 2 Nov 2026 (engine SNPP_END).
-- [ ] B6. Validation numbers in app + README. — In app ✔ (Methods table: 0.978 / 0.985 / 0.801); README missing.
+- [x] B6. Validation numbers in app + README. — App Methods table + README table (0.978 / 0.985 / 0.801; 16.3 / 18.1 / 24.5 %).
 - [x] B7. vs single multiplier. — Methods text: per-cell × month halves the error (S-NPP MAE per 2° block-month 12.8 vs 25.7, leave-one-year-out, scripts/harmonize.py).
 - [x] B8. Uncertainty band + method labelled per month incl. NRT. — Band on time series, lo/hi in CSV, "how this month was measured" tile, "Provisional" note + grey band from Aug 2026.
 - [x] B9. Blind-spot per area, "consistent with", sources. — Alert text names ISRO and iFOREST ("fits … as ISRO and iFOREST studies have reported"); computed per area; 2026 S-NPP-end artefact fixed.
@@ -58,10 +58,10 @@ Live: https://firecalendar-ten.vercel.app  ·  Evidence below = checks run on 15
 
 ## E. Deployment
 - [x] E1. Static export under size limits. — web/ 23 MB total (largest file grid.json 7.9 MB).
-- [ ] E2. Public GitHub repo (no .env, no data/raw, no .venv)
+- [x] E2. Public repo. — https://github.com/infinitethoughts7/firecalendar (200 without login; .env → 404; no keys in history; 46 MB tracked). Linked from site header + download card.
 - [x] E3. Vercel; public URL, no login. — https://firecalendar-ten.vercel.app returns 200 without auth; .env.local / .vercel → 404.
 - [x] E4. No API key in repo or browser. — Only FIRMS/Anthropic keys in .env (git-ignored); grep of web/ for key names: none. Re-check when D5 adds a Vercel env var.
-- [ ] E5. README
+- [x] E5. README. — Screenshot, features, method, validation, afternoon-witness finding ("consistent with"), limits, run locally, open API, credits (FIRMS, datameet, OSM, libs), AI use, MIT LICENSE.
 
 ## F. Submission (official form fields)
 - [ ] F1. Team page (Rocky)
