@@ -30,6 +30,24 @@ as fact.
      S-NPP Oct–Nov detections there: 8,738 (2021) → 457 (2025). [verified, 15 Nov]
    - Framing: **consistent with** ISRO SAC (Current Science, Nov 2025) and iFOREST (Dec 2025) reports that farmers shifted
      burning to late afternoon (~17:00) to avoid satellite passes. Say "consistent with", not "proves".
+2b. **NEW 2026 (provisional NRT data for Oct–Nov): the afternoon witness now sees MORE fires than VIIRS.** Punjab,
+   1 Oct–14 Nov daytime, like-for-like every year: Aqua vs NOAA-20 VIIRS (~13:30 pass, same orbit as S-NPP) [verified, 15 Nov;
+   interpretation = consistent with]
+   | Punjab | Aqua pass IST | Aqua | NOAA-20 | Aqua/NOAA-20 vs 2018–21 normal |
+   |---|---|---|---|---|
+   | 2021 | ~13:50 | 14,106 | 67,393 | 1.03× |
+   | 2024 | ~14:35 | 2,462 | 6,692 | 1.81× |
+   | 2025 | ~15:15 | 2,825 | 3,576 | 3.89× |
+   | **2026** | **~15:50** | **5,196** | **3,806** | **6.72×** |
+   - Aqua (1 km pixels) counted more fires than NOAA-20 (375 m), which normally sees ~5× more. Aqua's count rose 84% vs
+     2025 while NOAA-20 was flat (+6%). Sangrur: 13.7× normal (Aqua 810 vs NOAA-20 332).
+   - Harmonized Punjab Oct 1–Nov 14: 15,521 (2021) → 1,352 (2024) → 801 (2025) → 841 (2026): the VIIRS-based count
+     has stopped falling, and the later the witness looks, the more it sees.
+   - Caveats: 2026 Oct–Nov = FIRMS near-real-time (provisional); fires naturally peak in the afternoon, so part of the
+     rise is the diurnal cycle — which is exactly why a 13:30-only count undercounts if burning moved later.
+   - App blind-spot ratio (Aqua/S-NPP, only days S-NPP flew, to 2 Nov 2026): Punjab 3.68× (2026), Sangrur 7.66×.
+   - Bug caught before release: S-NPP stopped 2 Nov 2026, so an Aqua/S-NPP ratio over all of Nov gave fake 19×/80×.
+     Fixed: blind-spot test uses only days both satellites flew.
 3. **Anomaly calls the app makes** (what a user would see): [verified, 15 Nov]
    - Punjab, Nov 2024: 1,443 vs normal 5,697 → "much lower than usual" (lower than ~90% of past Novembers), **with the
      blind-spot warning attached**.
@@ -100,10 +118,19 @@ seen, end = 90%, peak = busiest 15 days; trend = Theil–Sen slope of the start 
 23. **Live, no login:** https://firecalendar-ten.vercel.app (Vercel, static, 22 MB). Tested 15 Nov: Sangrur, Odisha,
     month selector, drawn area (4 cells), CSV (303 rows), 390 px phone width, console clean. [verified, 15 Nov]
 
+24. **MODIS confidence classes verified** against NASA's MODIS C6/C6.1 Active Fire User Guide v1.0, §8.4.3 Table 11:
+    low 0–<30%, nominal 30–<80%, high 80–100% (= our code). §8.4.2 recommends nominal+high for fewer false alarms. [verified, 15 Nov]
+25. **Spot-check vs raw data:** independent DuckDB+shapely count from the parquet == live site, per satellite, for Sangrur
+    Nov 2015, Khammam Mar 2010, Odisha Mar 2019, Punjab Nov 2024 (4/4 exact). [verified, 15 Nov]
+26. **2026 data added** (FIRMS area API): 1,217,490 detections in India, 1 Jan–14 Nov 2026. Standard processing to Jul
+    (MODIS to Aug); near-real-time after (labelled provisional). NRT has no `type` field → static sources masked by
+    location (0.005° cells with ≥10 non-vegetation detections 2000–25). Tested on Jan–Jul 2026 SP rows that have `type`:
+    catches 95.4% of static detections, wrongly drops 1.3% of vegetation fires, 0.6% static leak → NRT ~0.7% low,
+    far inside the ±16–18% band. [verified, 15 Nov]
+
 ## F. Honest limitations (say these before a judge does)
 
 - A "fire count" is pixels flagged per satellite pass, not individual fires; we never add sensors together.
 - From 2022, values are VIIRS translated into MODIS units, with an uncertainty band (±16–18% monthly, ±3.5–5.6% yearly).
 - The blind-spot result is **evidence consistent with** late-afternoon burning, not proof; cloud, smoke and pass geometry also matter.
-- No 2026 data yet in the archive (yearly files not published); the outlook is climatology, not a forecast.
-- MODIS confidence classes (low < 30, nominal 30–79, high ≥ 80) follow common FIRMS practice — still to confirm in the MODIS user guide.
+- 2026 from Aug (VIIRS) / Sep (MODIS) is near-real-time, provisional; Nov 2026 is an unfinished month. The outlook is climatology, not a forecast.
