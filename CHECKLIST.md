@@ -50,7 +50,7 @@ Live: https://firecalendar-ten.vercel.app  ·  Evidence below = checks run on 15
 - [x] D2. 4-week outlook (history, not forecast). — Live outlook card with p10–p90 and last-5-year median.
 - [ ] D3. Worldwide: 3–4 more countries + switcher
 - [ ] D4. Claude summaries (en/hi/te)  ← Rocky: low value; replace with something better from Claude (see D5)
-- [ ] D5. Live "Ask FireCalendar" (Vercel function, key secret, rate limit + daily cap + small max_tokens)
+- [x] D5. Live "Ask FireCalendar" (Vercel function, key secret, rate limit + daily cap + small max_tokens) — LIVE 15 Nov (dpl_G7FQHNvkr2gxZNmanVAWRoPPjgTs). web/api/ask.js: Claude Opus 5.5 with 4 tools over the static JSON only; 4/min + 30/day per IP (x-real-ip), 300/day per instance, max_tokens 800, ASK_ENABLED=0 kill switch. Live test: Sangrur May 2025 answer 197 (161–233), median 115, avg 122, 86th pct = buildResponse exactly; Punjab Nov 2025 538 vs 5,545 ✓; Hindi/Telugu, follow-up, off-topic decline ✓ (preview); 390 px no h-scroll, console clean. Hard cost cap = Anthropic workspace spend limit (Rocky to set).
 - [ ] D6. Alert demo (Telegram/WhatsApp)
 - [ ] D7. Open data + data README + API docs
 - [x] D8. 2026 data via FIRMS API, labelled provisional. — 1,217,490 detections 1 Jan–14 Nov 2026; SP to Jul/Aug, NRT after (provisional label + grey band); NRT static mask validated. NOAA-21 not used (no training overlap).
@@ -60,7 +60,7 @@ Live: https://firecalendar-ten.vercel.app  ·  Evidence below = checks run on 15
 - [x] E1. Static export under size limits. — web/ 23 MB total (largest file grid.json 7.9 MB).
 - [x] E2. Public repo. — https://github.com/infinitethoughts7/firecalendar (200 without login; .env → 404; no keys in history; 46 MB tracked). Linked from site header + download card.
 - [x] E3. Vercel; public URL, no login. — https://firecalendar-ten.vercel.app returns 200 without auth; .env.local / .vercel → 404.
-- [x] E4. No API key in repo or browser. — Only FIRMS/Anthropic keys in .env (git-ignored); grep of web/ for key names: none. Re-check when D5 adds a Vercel env var.
+- [x] E4. No API key in repo or browser. — Only FIRMS/Anthropic keys in .env (git-ignored); grep of web/ for key names: none. Re-checked after D5: ANTHROPIC_API_KEY only as encrypted Vercel env var; live page HTML has no "sk-ant"; no key in web/.
 - [x] E5. README. — Screenshot, features, method, validation, afternoon-witness finding ("consistent with"), limits, run locally, open API, credits (FIRMS, datameet, OSM, libs), AI use, MIT LICENSE.
 
 ## F. Submission (official form fields)
